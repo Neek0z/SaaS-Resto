@@ -1,0 +1,159 @@
+import { useState } from "react";
+import { Delta } from "./Delta";
+import { KPIS, REVENUE_7D } from "@/lib/mock-data";
+import { cn, formatEuros } from "@/lib/utils";
+
+type Period = "today" | "week" | "month";
+
+export function KpiStrip() {
+  const [period, setPeriod] = useState<Period>("today");
+  const k = KPIS;
+  const rev =
+    period === "today" ? k.revenue.today : period === "week" ? k.revenue.week : k.revenue.month;
+  const revDelta =
+    period === "today"
+      ? k.revenue.todayDelta
+      : period === "week"
+      ? k.revenue.weekDelta
+      : k.revenue.monthDelta;
+
+  const progress = Math.round((k.covers.value / k.covers.goal) * 100);
+  const sparkData = REVENUE_7D.flatMap((d) => [d.lunch, d.dinner]);
+
+  return (
+    <div className="grid grid-cols-12 gap-4 mb-4">
+      {/* Hero revenue */}
+      <div className="kpi hero col-span-4 cursor-default">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
+              Chiffre d'affaires
+            </div>
+            <div className="display font-medium text-[38px] leading-none mt-[14px] mb-[10px] tracking-[-0.02em]">
+              {formatEuros(rev)}
+              <span className="text-[18px] text-ink-3 ml-[2px] font-normal"> €</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Delta value={revDelta} />
+              <span className="text-ink-3 text-[12px]">vs. période précédente</span>
+            </div>
+          </div>
+          <div className="segmented" onClick={(e) => e.stopPropagation()}>
+            {(["today", "week", "month"] as const).map((p) => (
+              <button
+                key={p}
+                className={cn(period === p && "active")}
+                onClick={() => setPeriod(p)}
+              >
+                {p === "today" ? "Jour" : p === "week" ? "Semaine" : "Mois"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Spark data={sparkData} />
+      </div>
+
+      {/* Couverts */}
+      <div className="kpi col-span-3">
+        <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
+          Couverts · ce soir
+        </div>
+        <div className="display font-medium text-[38px] leading-none mt-[14px] mb-[10px]">
+          {k.covers.value}
+          <span className="text-[18px] text-ink-3 font-normal"> / {k.covers.goal}</span>
+        </div>
+        <Delta value={k.covers.delta} />
+        <div className="flex gap-[3px] mt-3">
+          {Array.from({ length: 16 }).map((_, i) => {
+            const isFilled = i < Math.floor(progress / (100 / 16));
+            return (
+              <div
+                key={i}
+                className="flex-1 h-[6px] rounded-sm"
+                style={{ background: isFilled ? "var(--ember)" : "var(--bg-3)" }}
+              />
+            );
+          })}
+        </div>
+        <div className="text-[11.5px] text-ink-3 mt-[10px]">
+          {progress}% de l'objectif · {k.covers.goal - k.covers.value} places restantes
+        </div>
+      </div>
+
+      {/* Panier moyen */}
+      <div className="kpi col-span-2">
+        <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
+          Panier moyen
+        </div>
+        <div className="display font-medium text-[38px] leading-none mt-[14px] mb-[10px]">
+          {k.avgTicket.value.toFixed(1).replace(".", ",")}
+          <span className="text-[18px] text-ink-3 font-normal"> €</span>
+        </div>
+        <Delta value={k.avgTicket.delta} />
+        <div className="text-[11.5px] text-ink-3 mt-[10px]">
+          Boisson · 28% · Dessert · 41%
+        </div>
+      </div>
+
+      {/* Occupation */}
+      <div className="kpi col-span-3">
+        <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
+          Taux d'occupation
+        </div>
+        <div className="display font-medium text-[38px] leading-none mt-[14px] mb-[10px]">
+          {k.occupancy.value}
+          <span className="text-[18px] text-ink-3 font-normal"> %</span>
+        </div>
+        <Delta value={k.occupancy.delta} />
+        <div className="flex gap-[3px] mt-3">
+          {Array.from({ length: k.occupancy.tables.total }).map((_, i) => {
+            const isOn = i < k.occupancy.tables.occupied;
+            return (
+              <div
+                key={i}
+                className="flex-1 h-[6px] rounded-sm"
+                style={{ background: isOn ? "var(--ember)" : "var(--bg-3)" }}
+              />
+            );
+          })}
+        </div>
+        <div className="text-[11.5px] text-ink-3 mt-[10px]">
+          {k.occupancy.tables.occupied} / {k.occupancy.tables.total} tables occupées ·{" "}
+          {k.occupancy.tables.total - k.occupancy.tables.occupied} libres
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Spark({ data, color = "var(--ember)" }: { data: number[]; color?: string }) {
+  const w = 300;
+  const h = 40;
+  const pad = 2;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return [x, y] as const;
+  });
+  const path = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0] + "," + p[1]).join(" ");
+  const area = path + ` L${pts[pts.length - 1][0]},${h} L${pts[0][0]},${h} Z`;
+  return (
+    <svg
+      className="absolute left-0 right-0 bottom-0 h-[40px] w-full opacity-80 pointer-events-none"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id="spark-grad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#spark-grad)" />
+      <path d={path} stroke={color} strokeWidth="1.5" fill="none" />
+    </svg>
+  );
+}

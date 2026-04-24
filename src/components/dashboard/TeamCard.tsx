@@ -1,0 +1,33 @@
+import { TEAM } from "@/lib/mock-data";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { TeamChip } from "@/components/team/TeamChip";
+import { CardLink } from "./CardLink";
+
+export function TeamCard() {
+  const counts = TEAM.reduce(
+    (acc, m) => ({ ...acc, [m.status]: (acc[m.status] ?? 0) + 1 }),
+    {} as Record<string, number>
+  );
+
+  return (
+    <Card className="col-span-7 p-[18px]">
+      <CardHeader>
+        <CardTitle>
+          Équipe · <span className="text-ember-soft">en service</span>
+        </CardTitle>
+        <div className="flex gap-3 text-[11.5px] text-ink-3 mono">
+          <span className="text-ok">● {counts.service ?? 0} en poste</span>
+          <span className="text-amber">● {counts.break ?? 0} en pause</span>
+          <span className="text-danger">● {counts.late ?? 0} retard</span>
+        </div>
+      </CardHeader>
+
+      <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+        {TEAM.map((m) => (
+          <TeamChip key={m.name} m={m} />
+        ))}
+      </div>
+      <CardLink to="/equipe" label="Planning complet" />
+    </Card>
+  );
+}
