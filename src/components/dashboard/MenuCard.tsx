@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardLink } from "./CardLink";
 import { fetchTopDishes, type TopDish } from "@/lib/api/top-dishes";
@@ -33,7 +34,9 @@ export function MenuCard() {
     <Card className="col-span-7 p-[18px]">
       <CardHeader>
         <CardTitle>
-          Menu · <span className="text-ember-soft">top ventes (7 jours)</span>
+          <Link to="/menu" className="hover:text-ember-soft transition-colors">
+            Menu · <span className="text-ember-soft">top ventes (7 jours)</span>
+          </Link>
         </CardTitle>
         <span className="text-[11.5px] text-ink-3 mono">VENDUS / TENDANCE</span>
       </CardHeader>

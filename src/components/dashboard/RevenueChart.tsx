@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Link } from "react-router-dom";
 import { useDashboardCtx } from "@/hooks/useDashboard";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -18,7 +19,9 @@ export function RevenueChart() {
     <Card className="col-span-7 p-[18px]">
       <CardHeader>
         <CardTitle>
-          CA · <span className="text-ember-soft">7 derniers jours</span>
+          <Link to="/commandes" className="hover:text-ember-soft transition-colors">
+            CA · <span className="text-ember-soft">7 derniers jours</span>
+          </Link>
         </CardTitle>
         <div className="flex gap-[14px] text-[11.5px] text-ink-3">
           <Legend color="var(--amber)" label="Déjeuner" />

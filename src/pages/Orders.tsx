@@ -38,9 +38,12 @@ export default function Orders() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    const state = location.state as { openNew?: boolean } | null;
+    const state = location.state as { openNew?: boolean; openId?: string } | null;
     if (state?.openNew) {
       setNewOpen(true);
+      navigate(location.pathname, { replace: true, state: null });
+    } else if (state?.openId) {
+      setSelectedId(state.openId);
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location, navigate]);

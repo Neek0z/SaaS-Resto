@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useOrders } from "@/hooks/useOrders";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderRow } from "@/components/orders/OrderRow";
@@ -10,6 +11,7 @@ type Filter = "all" | "salle" | "cc" | "delivery";
 export function OrdersCard() {
   const [filter, setFilter] = useState<Filter>("all");
   const { orders, loading, error } = useOrders();
+  const navigate = useNavigate();
 
   const active = useMemo(
     () => orders.filter((o) => o.status !== "served" && o.status !== "cancelled"),
@@ -21,7 +23,9 @@ export function OrdersCard() {
     <Card className="col-span-7 p-[18px]">
       <CardHeader>
         <CardTitle>
-          Commandes · <span className="text-ember-soft">en cours</span>
+          <Link to="/commandes" className="hover:text-ember-soft transition-colors">
+            Commandes · <span className="text-ember-soft">en cours</span>
+          </Link>
         </CardTitle>
         <div className="segmented">
           {(["all", "salle", "cc", "delivery"] as const).map((f) => (
@@ -47,7 +51,11 @@ export function OrdersCard() {
       ) : (
         <div className="flex flex-col gap-[2px]">
           {rows.slice(0, 6).map((o) => (
-            <OrderRow key={o.id} order={o} />
+            <OrderRow
+              key={o.id}
+              order={o}
+              onClick={(ord) => navigate("/commandes", { state: { openId: ord.id } })}
+            />
           ))}
         </div>
       )}

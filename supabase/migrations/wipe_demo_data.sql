@@ -38,10 +38,8 @@ delete from public.digital_menu_categories where restaurant_id = '__PUT_RESTAURA
 delete from public.loyalty_customers where restaurant_id = '__PUT_RESTAURANT_ID_HERE__';
 delete from public.loyalty_rewards   where restaurant_id = '__PUT_RESTAURANT_ID_HERE__';
 
--- Menu numérique public (config)
-delete from public.digital_menu_config where restaurant_id = '__PUT_RESTAURANT_ID_HERE__';
-
 -- Tables seed sans tenant : on vide tout
+delete from public.digital_menu_config;
 delete from public.menu_items;
 delete from public.review_sources;
 delete from public.alerts;
@@ -60,7 +58,7 @@ union all select 'loyalty_customers',    count(*) from public.loyalty_customers 
 union all select 'loyalty_rewards',      count(*) from public.loyalty_rewards         where restaurant_id = '__PUT_RESTAURANT_ID_HERE__'
 union all select 'customers',            count(*) from public.customers               where restaurant_id = '__PUT_RESTAURANT_ID_HERE__'
 union all select 'campaigns',            count(*) from public.campaigns               where restaurant_id = '__PUT_RESTAURANT_ID_HERE__'
-union all select 'digital_menu_config',  count(*) from public.digital_menu_config     where restaurant_id = '__PUT_RESTAURANT_ID_HERE__'
+union all select 'digital_menu_config',  count(*) from public.digital_menu_config
 union all select 'menu_items (legacy)',  count(*) from public.menu_items
 union all select 'review_sources',       count(*) from public.review_sources
 union all select 'alerts',               count(*) from public.alerts

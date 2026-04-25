@@ -19,6 +19,7 @@ import { useRole } from "@/hooks/useRole";
 import { useSidebar, SIDEBAR_WIDTHS } from "@/lib/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_LABELS } from "@/config/roles";
+import { useSidebarCounters } from "@/hooks/useSidebarCounters";
 
 type Item = {
   to: string;
@@ -28,7 +29,7 @@ type Item = {
   badge?: string;
 };
 
-const pilotage: Item[] = [
+const pilotage: Omit<Item, "badge">[] = [
   { to: "/dashboard", resource: "nav.dashboard", label: "Tableau de bord", icon: <BarChart3 size={17} /> },
   { to: "/commandes", resource: "nav.commandes", label: "Commandes", icon: <ClipboardList size={17} /> },
   { to: "/reservations", resource: "nav.reservations", label: "Réservations", icon: <CalendarDays size={17} /> },
@@ -42,6 +43,12 @@ const pilotage: Item[] = [
   { to: "/clients", resource: "nav.clients", label: "Clients", icon: <Mail size={17} /> },
 ];
 
+function formatBadge(n: number): string | undefined {
+  if (n <= 0) return undefined;
+  if (n > 99) return "99+";
+  return String(n);
+}
+
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 export function Sidebar() {
@@ -49,7 +56,15 @@ export function Sidebar() {
   const { isAtLeast, role } = useRole();
   const { collapsed, toggle } = useSidebar();
   const { user, restaurant } = useAuth();
-  const visibleItems = pilotage.filter((item) => can(item.resource));
+  const counters = useSidebarCounters();
+  const badgesByPath: Record<string, string | undefined> = {
+    "/commandes": formatBadge(counters.ordersInProgress),
+    "/reservations": formatBadge(counters.reservationsToday),
+    "/fidelite": formatBadge(counters.loyaltyMembers),
+  };
+  const visibleItems: Item[] = pilotage
+    .filter((item) => can(item.resource))
+    .map((item) => ({ ...item, badge: badgesByPath[item.to] }));
   const showSettings = isAtLeast("manager");
 
   const displayName = restaurant?.name ?? user?.email ?? "—";

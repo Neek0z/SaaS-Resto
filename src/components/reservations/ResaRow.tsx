@@ -15,6 +15,8 @@ export function ResaRow({
       ? "border-l-ok"
       : r.status === "confirmed"
       ? "border-l-ember"
+      : r.status === "pending"
+      ? "border-l-ember-soft"
       : "border-l-danger opacity-60";
 
   return (
@@ -68,5 +70,8 @@ export function ResaRow({
 }
 
 export function statusLabel(s: Reservation["status"]) {
-  return s === "seated" ? "Installée" : s === "confirmed" ? "Confirmée" : "No-show";
+  if (s === "seated") return "Installée";
+  if (s === "confirmed") return "Confirmée";
+  if (s === "pending") return "En attente";
+  return "No-show";
 }

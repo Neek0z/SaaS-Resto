@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PLAN_LABELS } from "@/config/plans";
 import { ROLE_LABELS, ROLE_ORDER, isRoleAtLeast, type Role } from "@/config/roles";
 import { cn, currentServiceLabel, formatLongDateFr } from "@/lib/utils";
+import { CommandPalette } from "./CommandPalette";
 
 type PopoverId = "notif" | "chat" | "menu" | "rolesim";
 
@@ -61,6 +62,7 @@ export function Topbar() {
   const [time, setTime] = useState(() => currentTime());
   const [openPopover, setOpenPopover] = useState<PopoverId | null>(null);
   const [notifs, setNotifs] = useState(NOTIFS);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const containersRef = useRef<Record<PopoverId, HTMLDivElement | null>>({
     notif: null,
     chat: null,
@@ -71,6 +73,17 @@ export function Topbar() {
   useEffect(() => {
     const id = setInterval(() => setTime(currentTime()), 30000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
@@ -124,13 +137,17 @@ export function Topbar() {
 
       <span className="live-dot">Live · {time}</span>
 
-      <div className="flex items-center gap-2 bg-bg-1 border border-line rounded-[10px] px-3 py-[7px] w-[240px] text-ink-3 text-[13px] hover:border-line-2 cursor-pointer transition-colors">
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        className="flex items-center gap-2 bg-bg-1 border border-line rounded-[10px] px-3 py-[7px] w-[240px] text-ink-3 text-[13px] hover:border-line-2 hover:text-ink-2 transition-colors text-left"
+      >
         <Search size={15} />
-        <span className="flex-1 text-ink-3">Rechercher commande, action…</span>
-        <span className="mono text-[10px] text-ink-4 px-[5px] py-[1px] border border-line-2 rounded">
+        <span className="flex-1 truncate">Rechercher une page, action…</span>
+        <span className="mono text-[10px] text-ink-4 px-[5px] py-[1px] border border-line-2 rounded flex-shrink-0">
           ⌘K
         </span>
-      </div>
+      </button>
 
       {actualRole === "developer" && (
         <div
@@ -280,6 +297,8 @@ export function Topbar() {
           </div>
         )}
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

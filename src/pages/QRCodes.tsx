@@ -1,14 +1,17 @@
 import { useMemo, useState } from "react";
 import {
+  CalendarCheck,
   Check,
   Copy,
   Download,
+  ExternalLink,
   FileImage,
   FileText,
   Heart,
   Package,
   Plus,
   QrCode as QrCodeIcon,
+  Sparkles,
   Trash2,
   UtensilsCrossed,
 } from "lucide-react";
@@ -17,13 +20,20 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQRCode, type QROptions } from "@/hooks/useQRCode";
 import { useTables } from "@/hooks/useTables";
-import { publicLoyaltyUrl, publicMenuUrl, slugify } from "@/lib/slug";
+import { publicHubUrl, slugify } from "@/lib/slug";
 import { cn } from "@/lib/utils";
-import { PlanGate } from "@/components/PlanGate";
 import { QRPreview } from "@/components/qrcode/QRPreview";
 import { NewTableModal } from "@/components/qrcode/NewTableModal";
+import type { TableZone } from "@/lib/api/restaurant-tables";
 
 type ECL = "L" | "M" | "H";
+
+const ZONE_LABEL: Record<TableZone, string> = {
+  inside: "Salle",
+  terrace: "Terrasse",
+  bar: "Bar",
+  private: "Privée",
+};
 
 export default function QRCodes() {
   const { restaurant } = useAuth();
@@ -42,14 +52,19 @@ export default function QRCodes() {
     [color, background, ecl]
   );
 
+  const hubUrl = publicHubUrl(slug);
+
   return (
     <>
       <div className="flex items-end justify-between mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Diffusion · QR codes</div>
           <h2 className="display font-medium text-[26px] leading-tight m-0">
-            Vos QR codes <em className="not-italic italic text-ember-soft font-normal">imprimables</em>
+            Votre QR code <em className="not-italic italic text-ember-soft font-normal">unique</em>
           </h2>
+          <div className="text-[12.5px] text-ink-3 mt-1">
+            Un seul QR donne accès à la carte, la réservation et la fidélité.
+          </div>
         </div>
       </div>
 
@@ -96,58 +111,33 @@ export default function QRCodes() {
         </div>
       </Card>
 
-      {/* Section 1 — Carte digitale */}
-      <SingleQRSection
-        icon={<UtensilsCrossed size={14} />}
-        title="Carte digitale"
-        subtitle="Un QR code unique pour la salle"
-        url={publicMenuUrl(slug)}
-        filename={`carte-${slug}`}
+      {/* QR principal */}
+      <MainQRSection
+        url={hubUrl}
+        filename={`severe-${slug}`}
         sublabel={restaurantName}
         options={options}
       />
 
-      {/* Section 2 — Tables */}
+      {/* Tables */}
       <TablesSection slug={slug} options={options} />
-
-      {/* Section 3 — Fidélité (gated) */}
-      <PlanGate feature="fidelite" requiredPlan="pro">
-        <SingleQRSection
-          icon={<Heart size={14} />}
-          title="Programme fidélité"
-          subtitle="Pour inscrire les clients en un scan"
-          url={publicLoyaltyUrl(slug)}
-          filename={`fidelite-${slug}`}
-          sublabel={restaurantName}
-          options={options}
-          tone="ember"
-        />
-      </PlanGate>
     </>
   );
 }
 
 // ---------------------------------------------------------------
-// Section : un seul QR (carte ou fidélité)
+// Section : QR principal (hub : carte + réservation + fidélité)
 // ---------------------------------------------------------------
-function SingleQRSection({
-  icon,
-  title,
-  subtitle,
+function MainQRSection({
   url,
   filename,
   sublabel,
   options,
-  tone = "cream",
 }: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
   url: string;
   filename: string;
   sublabel: string;
   options: QROptions;
-  tone?: "cream" | "ember";
 }) {
   const { downloadPNG, downloadSVG } = useQRCode();
   const [copied, setCopied] = useState(false);
@@ -158,7 +148,7 @@ function SingleQRSection({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard refusée, on ignore.
+      // ignore
     }
   };
 
@@ -167,18 +157,24 @@ function SingleQRSection({
       <CardHeader>
         <CardTitle>
           <span className="inline-flex items-center gap-2">
-            <span className={cn("inline-grid place-items-center w-[20px] h-[20px] rounded-md", tone === "ember" ? "bg-ember/15 text-ember-soft" : "bg-bg-3 text-ink-2")}>
-              {icon}
+            <span className="inline-grid place-items-center w-[20px] h-[20px] rounded-md bg-ember/15 text-ember-soft">
+              <Sparkles size={14} />
             </span>
-            {title}
+            QR client principal
           </span>
         </CardTitle>
-        <span className="text-[11px] text-ink-4 mono uppercase tracking-[0.08em]">
-          {subtitle}
-        </span>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[11.5px] text-ember-soft hover:text-ember inline-flex items-center gap-[5px]"
+        >
+          Tester le lien
+          <ExternalLink size={11} />
+        </a>
       </CardHeader>
 
-      <div className="grid items-center gap-5" style={{ gridTemplateColumns: "auto 1fr" }}>
+      <div className="grid items-start gap-5" style={{ gridTemplateColumns: "auto 1fr" }}>
         <div className="flex flex-col items-center gap-2">
           <QRPreview url={url} size={256} options={options} />
           <div className="text-[12.5px] font-semibold text-ink-1 text-center max-w-[256px] truncate">
@@ -193,7 +189,27 @@ function SingleQRSection({
               {url}
             </code>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="grid grid-cols-3 gap-2">
+            <FeatureChip
+              icon={<UtensilsCrossed size={13} />}
+              label="Carte"
+              hint="Plats & boissons"
+            />
+            <FeatureChip
+              icon={<CalendarCheck size={13} />}
+              label="Réserver"
+              hint="Demande de table"
+              tone="ember"
+            />
+            <FeatureChip
+              icon={<Heart size={13} />}
+              label="Fidélité"
+              hint="Inscription au programme"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-1">
             <button
               className="btn-primary inline-flex items-center gap-2"
               onClick={() => void downloadPNG(url, `${filename}.png`, 512, options)}
@@ -225,8 +241,37 @@ function SingleQRSection({
   );
 }
 
+function FeatureChip({
+  icon,
+  label,
+  hint,
+  tone = "cream",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hint: string;
+  tone?: "ember" | "cream";
+}) {
+  return (
+    <div className="bg-bg-2 border border-line rounded-[10px] p-[10px]">
+      <div className="flex items-center gap-2 mb-1">
+        <span
+          className={cn(
+            "inline-grid place-items-center w-[22px] h-[22px] rounded-md",
+            tone === "ember" ? "bg-ember/15 text-ember-soft" : "bg-bg-3 text-ink-2"
+          )}
+        >
+          {icon}
+        </span>
+        <span className="text-[12px] font-semibold text-ink-1">{label}</span>
+      </div>
+      <div className="text-[11px] text-ink-3">{hint}</div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------
-// Section : QR par table
+// Section : QR par table (chacun pointe vers le hub avec ?table=X)
 // ---------------------------------------------------------------
 function TablesSection({
   slug,
@@ -251,7 +296,7 @@ function TablesSection({
     try {
       const zip = new JSZip();
       for (const t of tables) {
-        const url = publicMenuUrl(slug, t.number);
+        const url = publicHubUrl(slug, t.number);
         const blob = await generateBlob(url, 512, options);
         zip.file(`table-${t.number}.png`, blob);
       }
@@ -305,6 +350,11 @@ function TablesSection({
           </div>
         </CardHeader>
 
+        <div className="text-[11.5px] text-ink-3 mb-3">
+          Chaque QR table renvoie vers le même hub mais avec le numéro de table déjà sélectionné —
+          pratique pour la commande à table et la résa sur place.
+        </div>
+
         {zipError && (
           <div className="mb-3 text-[12px] text-danger">{zipError}</div>
         )}
@@ -317,7 +367,7 @@ function TablesSection({
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {tables.map((t) => {
-              const url = publicMenuUrl(slug, t.number);
+              const url = publicHubUrl(slug, t.number);
               return (
                 <div
                   key={t.id}
@@ -329,7 +379,7 @@ function TablesSection({
                       Table {t.number}
                     </div>
                     <div className="text-[10.5px] mono text-ink-4 mt-[2px]">
-                      {t.capacity} couvert{t.capacity > 1 ? "s" : ""}
+                      {t.capacity} cv · {ZONE_LABEL[t.zone]}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 mt-1">

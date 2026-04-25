@@ -1,3 +1,4 @@
+import { Link, useNavigate } from "react-router-dom";
 import { useReservations } from "@/hooks/useReservations";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResaRow } from "@/components/reservations/ResaRow";
@@ -10,6 +11,7 @@ function currentTimeKey(): string {
 
 export function ReservationsCard() {
   const { reservations, loading, error } = useReservations();
+  const navigate = useNavigate();
   const totalCovers = reservations.reduce((s, r) => s + r.covers, 0);
   const now = currentTimeKey();
   const currentTime = reservations
@@ -21,7 +23,9 @@ export function ReservationsCard() {
     <Card className="col-span-5 p-[18px]">
       <CardHeader>
         <CardTitle>
-          Réservations · <span className="text-ember-soft">aujourd'hui</span>
+          <Link to="/reservations" className="hover:text-ember-soft transition-colors">
+            Réservations · <span className="text-ember-soft">aujourd'hui</span>
+          </Link>
         </CardTitle>
         <span className="text-[11.5px] text-ink-3">
           {reservations.length} résas · {totalCovers} couverts
@@ -39,7 +43,12 @@ export function ReservationsCard() {
       ) : (
         <div className="flex flex-col gap-[2px] max-h-[480px] overflow-y-auto pr-[6px]">
           {reservations.map((r) => (
-            <ResaRow key={r.id} r={r} current={r.time === currentTime} />
+            <ResaRow
+              key={r.id}
+              r={r}
+              current={r.time === currentTime}
+              onClick={(res) => navigate("/reservations", { state: { openId: res.id } })}
+            />
           ))}
         </div>
       )}

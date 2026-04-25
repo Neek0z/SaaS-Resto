@@ -72,12 +72,20 @@ export function ReservationDrawer({
                       ? "var(--ok)"
                       : resa.status === "confirmed"
                       ? "var(--ember-soft)"
+                      : resa.status === "pending"
+                      ? "var(--ember)"
                       : "var(--danger)",
                 }}
               >
                 {statusLabel(resa.status)}
               </span>
             </div>
+            {resa.status === "pending" && (
+              <div className="mb-2 p-2 rounded-[8px] bg-ember/10 border border-ember/30 text-[11.5px] text-ember-soft inline-flex items-center gap-2">
+                <AlertTriangle size={12} />
+                Demande reçue via le QR public — à valider.
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-2">
               <StatusBtn
                 active={resa.status === "confirmed"}

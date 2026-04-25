@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useTeam } from "@/hooks/useTeam";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeamChip } from "@/components/team/TeamChip";
@@ -15,7 +16,9 @@ export function TeamCard() {
     <Card className="col-span-7 p-[18px]">
       <CardHeader>
         <CardTitle>
-          Équipe · <span className="text-ember-soft">en service</span>
+          <Link to="/equipe" className="hover:text-ember-soft transition-colors">
+            Équipe · <span className="text-ember-soft">en service</span>
+          </Link>
         </CardTitle>
         <div className="flex gap-3 text-[11.5px] text-ink-3 mono">
           <span className="text-ok">● {counts.service ?? 0} en poste</span>

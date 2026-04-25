@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarPlus, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useReservations } from "@/hooks/useReservations";
+import { useTables, type TableEntry } from "@/hooks/useTables";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Reservation, ResaStatus, NewReservation } from "@/lib/reservation-types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResaRow } from "@/components/reservations/ResaRow";
@@ -33,6 +35,8 @@ function formatDateLabel(iso: string): string {
 
 export default function Reservations() {
   const { reservations, loading, error, date, setDate, add, update, remove } = useReservations();
+  const { restaurant } = useAuth();
+  const { tables } = useTables(restaurant?.id ?? null);
   const [service, setService] = useState<Service>("dinner");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
@@ -57,9 +61,12 @@ export default function Reservations() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    const state = location.state as { openNew?: boolean } | null;
+    const state = location.state as { openNew?: boolean; openId?: string } | null;
     if (state?.openNew) {
       setNewOpen(true);
+      navigate(location.pathname, { replace: true, state: null });
+    } else if (state?.openId) {
+      setSelectedId(state.openId);
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location, navigate]);
@@ -87,8 +94,9 @@ export default function Reservations() {
     const covers = reservations.reduce((s, r) => s + r.covers, 0);
     const seated = reservations.filter((r) => r.status === "seated").length;
     const confirmed = reservations.filter((r) => r.status === "confirmed").length;
+    const pending = reservations.filter((r) => r.status === "pending").length;
     const noshow = reservations.filter((r) => r.status === "noshow").length;
-    return { total, covers, seated, confirmed, noshow };
+    return { total, covers, seated, confirmed, pending, noshow };
   }, [reservations]);
 
   const groupedByHour = useMemo(() => {
@@ -140,15 +148,16 @@ export default function Reservations() {
       )}
 
       <div className="grid grid-cols-12 gap-4 mb-4">
-        <StatTile className="col-span-3" label="Total résas" value={stats.total} hint={`${stats.covers} couverts`} tone="cream" />
+        <StatTile className="col-span-2" label="Total résas" value={stats.total} hint={`${stats.covers} couverts`} tone="cream" />
+        <StatTile className="col-span-2" label="À valider" value={stats.pending} hint="Demandes QR" tone="ember-soft" />
         <StatTile className="col-span-2" label="Installées" value={stats.seated} hint="À table" tone="ok" />
         <StatTile className="col-span-2" label="Confirmées" value={stats.confirmed} hint="À venir" tone="ember" />
         <StatTile className="col-span-2" label="No-shows" value={stats.noshow} hint="À recontacter" tone="danger" />
         <StatTile
-          className="col-span-3"
-          label="Taux de remplissage"
+          className="col-span-2"
+          label="Remplissage"
           value={`${Math.round((stats.covers / 60) * 100)}%`}
-          hint="60 couverts cibles ce service"
+          hint="cible 60 cv"
           tone="ember"
         />
       </div>
@@ -170,7 +179,7 @@ export default function Reservations() {
           <span className="text-ink-4 text-[11px]">|</span>
 
           <div className="segmented">
-            {(["all", "seated", "confirmed", "noshow"] as const).map((s) => (
+            {(["all", "pending", "confirmed", "seated", "noshow"] as const).map((s) => (
               <button
                 key={s}
                 className={cn(status === s && "active")}
@@ -178,6 +187,8 @@ export default function Reservations() {
               >
                 {s === "all"
                   ? "Tous"
+                  : s === "pending"
+                  ? `À valider${stats.pending > 0 ? ` (${stats.pending})` : ""}`
                   : s === "seated"
                   ? "Installées"
                   : s === "confirmed"
@@ -255,10 +266,15 @@ export default function Reservations() {
               Plan · <span className="text-ember-soft">occupation tables</span>
             </CardTitle>
           </CardHeader>
-          <FloorPlan resas={reservations} onSelect={(r) => setSelectedId(r.id)} />
+          <FloorPlan
+            tables={tables}
+            resas={reservations}
+            onSelect={(r) => setSelectedId(r.id)}
+          />
           <div className="mt-4 flex items-center gap-3 text-[11px] text-ink-3 flex-wrap">
             <LegendDot color="var(--ok)" label="Installée" />
             <LegendDot color="var(--ember)" label="Confirmée" />
+            <LegendDot color="var(--ember-soft)" label="À valider" />
             <LegendDot color="var(--danger)" label="No-show" />
             <LegendDot color="var(--bg-3)" label="Libre" />
           </div>
@@ -275,6 +291,9 @@ export default function Reservations() {
         open={newOpen}
         onClose={() => setNewOpen(false)}
         onCreate={handleCreate}
+        defaultDate={date}
+        tables={tables}
+        existingReservations={reservations}
       />
     </>
   );
@@ -297,11 +316,19 @@ function StatTile({
   label: string;
   value: string | number;
   hint: string;
-  tone: "ember" | "ok" | "danger" | "cream";
+  tone: "ember" | "ember-soft" | "ok" | "danger" | "cream";
   className?: string;
 }) {
   const toneColor =
-    tone === "ember" ? "var(--ember-soft)" : tone === "ok" ? "var(--ok)" : tone === "danger" ? "var(--danger)" : "var(--ink-1)";
+    tone === "ember"
+      ? "var(--ember)"
+      : tone === "ember-soft"
+      ? "var(--ember-soft)"
+      : tone === "ok"
+      ? "var(--ok)"
+      : tone === "danger"
+      ? "var(--danger)"
+      : "var(--ink-1)";
   return (
     <div className={cn("kpi", className)}>
       <div className="chip-uppercase">{label}</div>
@@ -313,32 +340,56 @@ function StatTile({
   );
 }
 
-function FloorPlan({ resas, onSelect }: { resas: Reservation[]; onSelect?: (r: Reservation) => void }) {
-  const tables = Array.from({ length: 20 }, (_, i) => `T${i + 1}`);
+function FloorPlan({
+  tables,
+  resas,
+  onSelect,
+}: {
+  tables: TableEntry[];
+  resas: Reservation[];
+  onSelect?: (r: Reservation) => void;
+}) {
+  const priority: Record<ResaStatus, number> = {
+    seated: 4,
+    confirmed: 3,
+    pending: 2,
+    noshow: 1,
+  };
   const byTable = new Map<string, Reservation>();
   resas.forEach((r) => {
     const existing = byTable.get(r.table);
-    if (!existing) byTable.set(r.table, r);
-    else if (existing.status === "noshow" || (existing.status === "confirmed" && r.status === "seated")) {
+    if (!existing || priority[r.status] > priority[existing.status]) {
       byTable.set(r.table, r);
     }
   });
 
+  if (tables.length === 0) {
+    return (
+      <div className="py-10 text-center text-[12px] text-ink-4 italic">
+        Aucune table configurée.
+        <br />
+        Ajoutez-en depuis « QR codes ».
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-4 gap-2">
       {tables.map((t) => {
-        const r = byTable.get(t);
+        const r = byTable.get(t.number);
         const bg =
           r?.status === "seated"
             ? "bg-ok/15 border-ok/40 text-ok"
             : r?.status === "confirmed"
             ? "bg-ember/10 border-ember-deep/40 text-ember-soft"
+            : r?.status === "pending"
+            ? "bg-ember-soft/10 border-ember-soft/40 text-ember-soft"
             : r?.status === "noshow"
             ? "bg-danger/10 border-danger/40 text-danger"
             : "bg-bg-2 border-line text-ink-4";
         return (
           <div
-            key={t}
+            key={t.id}
             role={r ? "button" : undefined}
             tabIndex={r ? 0 : undefined}
             onClick={() => r && onSelect?.(r)}
@@ -353,13 +404,17 @@ function FloorPlan({ resas, onSelect }: { resas: Reservation[]; onSelect?: (r: R
               bg,
               r ? "cursor-pointer hover:-translate-y-[1px]" : "cursor-default"
             )}
-            title={r ? `${r.name} · ${r.time} · ${r.covers} cv` : "Libre"}
+            title={
+              r
+                ? `${r.name} · ${r.time} · ${r.covers} cv`
+                : `Libre · ${t.capacity} cv`
+            }
           >
-            <div className="mono text-[13px] font-bold">{t}</div>
+            <div className="mono text-[13px] font-bold">{t.number}</div>
             {r ? (
               <div className="text-[9px] mt-[2px] mono">{r.time}</div>
             ) : (
-              <div className="text-[9px] mt-[2px] text-ink-4">Libre</div>
+              <div className="text-[9px] mt-[2px] text-ink-4">{t.capacity}cv</div>
             )}
           </div>
         );

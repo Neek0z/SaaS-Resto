@@ -1,4 +1,4 @@
-export type ResaStatus = "seated" | "confirmed" | "noshow";
+export type ResaStatus = "pending" | "seated" | "confirmed" | "noshow";
 
 export type Reservation = {
   id: string;

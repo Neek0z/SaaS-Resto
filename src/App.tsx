@@ -28,7 +28,10 @@ const Register = lazy(() => import("@/pages/auth/Register"));
 const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
 
+const PublicHub = lazy(() => import("@/pages/PublicHub"));
 const PublicMenu = lazy(() => import("@/pages/PublicMenu"));
+const PublicReservation = lazy(() => import("@/pages/PublicReservation"));
+const PublicLoyalty = lazy(() => import("@/pages/PublicLoyalty"));
 
 function RouteFallback() {
   return (
@@ -55,7 +58,10 @@ export default function App() {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/chez/:slug" element={<PublicHub />} />
             <Route path="/carte/:slug" element={<PublicMenu />} />
+            <Route path="/reserver/:slug" element={<PublicReservation />} />
+            <Route path="/fidelite/:slug" element={<PublicLoyalty />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

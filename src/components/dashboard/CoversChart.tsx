@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Link } from "react-router-dom";
 import { useDashboardCtx } from "@/hooks/useDashboard";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -18,7 +19,9 @@ export function CoversChart() {
     <Card className="col-span-5 p-[18px]">
       <CardHeader>
         <CardTitle>
-          Couverts · <span className="text-ember-soft">par créneau</span>
+          <Link to="/reservations" className="hover:text-ember-soft transition-colors">
+            Couverts · <span className="text-ember-soft">par créneau</span>
+          </Link>
         </CardTitle>
         <span className="text-[11.5px] text-ink-3 mono">{rows.length} créneaux</span>
       </CardHeader>

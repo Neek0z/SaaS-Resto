@@ -12,6 +12,7 @@ import {
   type EventPayload,
   type RestaurantEvent,
 } from "@/lib/event-types";
+import { extractErrorMessage } from "@/lib/errors";
 
 export function useEvents() {
   const { restaurant } = useAuth();
@@ -33,7 +34,7 @@ export function useEvents() {
       const list = await fetchEvents(restaurantId);
       setEvents(list);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Échec du chargement.");
+      setError(extractErrorMessage(e) || "Échec du chargement.");
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export function useEvents() {
         setEvents((prev) => [created, ...prev]);
         return created;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Échec de la création.");
+        setError(extractErrorMessage(e) || "Échec de la création.");
         return null;
       }
     },
@@ -75,7 +76,7 @@ export function useEvents() {
         await updateEvent(id, payload);
       } catch (e) {
         setEvents(before);
-        setError(e instanceof Error ? e.message : "Échec de la mise à jour.");
+        setError(extractErrorMessage(e) || "Échec de la mise à jour.");
       }
     },
     [events]
@@ -94,7 +95,7 @@ export function useEvents() {
         await toggleEventActive(id, next);
       } catch (e) {
         setEvents(before);
-        setError(e instanceof Error ? e.message : "Échec du changement.");
+        setError(extractErrorMessage(e) || "Échec du changement.");
       }
     },
     [events]
@@ -108,7 +109,7 @@ export function useEvents() {
         await deleteEvent(id);
       } catch (e) {
         setEvents(before);
-        setError(e instanceof Error ? e.message : "Échec de la suppression.");
+        setError(extractErrorMessage(e) || "Échec de la suppression.");
       }
     },
     [events]

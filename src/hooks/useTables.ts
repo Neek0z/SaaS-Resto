@@ -1,90 +1,127 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createTable,
+  deleteTable,
+  listTables,
+  updateTable,
+  type RestaurantTable,
+  type TableZone,
+} from "@/lib/api/restaurant-tables";
+import { extractErrorMessage } from "@/lib/errors";
+
+export type { RestaurantTable, TableZone } from "@/lib/api/restaurant-tables";
 
 export type TableEntry = {
   id: string;
   number: string;
   capacity: number;
+  zone: TableZone;
 };
 
-const KEY_PREFIX = "severe.tables.";
-
-function load(restaurantId: string): TableEntry[] {
-  try {
-    const raw = localStorage.getItem(KEY_PREFIX + restaurantId);
-    if (!raw) return defaultTables();
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return defaultTables();
-    return parsed.filter(isTable);
-  } catch {
-    return defaultTables();
-  }
-}
-
-function isTable(v: unknown): v is TableEntry {
-  if (!v || typeof v !== "object") return false;
-  const t = v as Record<string, unknown>;
-  return (
-    typeof t.id === "string" &&
-    typeof t.number === "string" &&
-    typeof t.capacity === "number"
-  );
-}
-
-function defaultTables(): TableEntry[] {
-  return Array.from({ length: 8 }, (_, i) => ({
-    id: `t${i + 1}`,
-    number: String(i + 1),
-    capacity: i < 4 ? 2 : 4,
-  }));
-}
-
-function save(restaurantId: string, tables: TableEntry[]) {
-  try {
-    localStorage.setItem(KEY_PREFIX + restaurantId, JSON.stringify(tables));
-  } catch {
-    // Ignore storage failures (quota, private mode).
-  }
+function toEntry(t: RestaurantTable): TableEntry {
+  return { id: t.id, number: t.label, capacity: t.capacity, zone: t.zone };
 }
 
 export function useTables(restaurantId: string | null) {
   const [tables, setTables] = useState<TableEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     if (!restaurantId) {
       setTables([]);
       return;
     }
-    setTables(load(restaurantId));
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listTables(restaurantId);
+      if (!mounted.current) return;
+      setTables(rows.map(toEntry));
+    } catch (e) {
+      if (mounted.current) setError(extractErrorMessage(e));
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
   }, [restaurantId]);
 
-  const persist = useCallback(
-    (next: TableEntry[]) => {
-      if (restaurantId) save(restaurantId, next);
-      setTables(next);
-    },
-    [restaurantId]
-  );
+  useEffect(() => {
+    mounted.current = true;
+    void reload();
+    return () => {
+      mounted.current = false;
+    };
+  }, [reload]);
 
   const addTable = useCallback(
-    (number: string, capacity: number) => {
-      const trimmed = number.trim();
+    async (label: string, capacity: number, zone: TableZone = "inside") => {
+      const trimmed = label.trim();
       if (!trimmed) return;
-      const exists = tables.some((t) => t.number === trimmed);
-      if (exists) return;
-      persist([
-        ...tables,
-        { id: `t_${Date.now().toString(36)}`, number: trimmed, capacity },
-      ]);
+      if (tables.some((t) => t.number === trimmed)) {
+        setError("Cette table existe déjà.");
+        return;
+      }
+      try {
+        const created = await createTable({ label: trimmed, capacity, zone });
+        setTables((prev) => [...prev, toEntry(created)].sort((a, b) => a.number.localeCompare(b.number)));
+      } catch (e) {
+        setError(extractErrorMessage(e));
+      }
     },
-    [tables, persist]
+    [tables]
   );
 
   const removeTable = useCallback(
-    (id: string) => {
-      persist(tables.filter((t) => t.id !== id));
+    async (id: string) => {
+      const before = tables;
+      setTables((prev) => prev.filter((t) => t.id !== id));
+      try {
+        await deleteTable(id);
+      } catch (e) {
+        setTables(before);
+        setError(extractErrorMessage(e));
+      }
     },
-    [tables, persist]
+    [tables]
   );
 
-  return { tables, addTable, removeTable };
+  const editTable = useCallback(
+    async (
+      id: string,
+      patch: { label?: string; capacity?: number; zone?: TableZone }
+    ) => {
+      const before = tables;
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                ...(patch.label !== undefined ? { number: patch.label } : {}),
+                ...(patch.capacity !== undefined ? { capacity: patch.capacity } : {}),
+                ...(patch.zone !== undefined ? { zone: patch.zone } : {}),
+              }
+            : t
+        )
+      );
+      try {
+        await updateTable(id, patch);
+      } catch (e) {
+        setTables(before);
+        setError(extractErrorMessage(e));
+      }
+    },
+    [tables]
+  );
+
+  return {
+    tables,
+    loading,
+    error,
+    addTable,
+    removeTable,
+    editTable,
+    reload,
+    clearError: () => setError(null),
+  };
 }

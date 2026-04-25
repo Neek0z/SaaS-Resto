@@ -1,11 +1,43 @@
 import { useState } from "react";
 import { Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Delta } from "./Delta";
 import { useDashboardCtx } from "@/hooks/useDashboard";
 import { cn, formatEuros } from "@/lib/utils";
 import { RoleGate } from "@/components/RoleGate";
 
 type Period = "today" | "week" | "month";
+
+function KpiLink({
+  to,
+  className,
+  children,
+}: {
+  to: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(to)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(to);
+        }
+      }}
+      className={cn(
+        "cursor-pointer hover:border-line-2 hover:bg-bg-2/30 focus:outline-none focus:ring-2 focus:ring-ember/40 transition-colors",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function KpiStrip() {
   const [period, setPeriod] = useState<Period>("today");
@@ -45,7 +77,7 @@ export function KpiStrip() {
   return (
     <div className="grid grid-cols-12 gap-4 mb-4">
       {/* Hero revenue */}
-      <div className="kpi hero col-span-4 cursor-default">
+      <KpiLink to="/commandes" className="kpi hero col-span-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
@@ -60,7 +92,11 @@ export function KpiStrip() {
               <span className="text-ink-3 text-[12px]">vs. période précédente</span>
             </div>
           </div>
-          <div className="segmented" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="segmented"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             {(["today", "week", "month"] as const).map((p) => (
               <button
                 key={p}
@@ -73,10 +109,10 @@ export function KpiStrip() {
           </div>
         </div>
         {sparkData.length > 1 && <Spark data={sparkData} />}
-      </div>
+      </KpiLink>
 
       {/* Couverts */}
-      <div className="kpi col-span-3">
+      <KpiLink to="/reservations" className="kpi col-span-3">
         <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
           Couverts · ce soir
         </div>
@@ -100,7 +136,7 @@ export function KpiStrip() {
         <div className="text-[11.5px] text-ink-3 mt-[10px]">
           {progress}% de l'objectif · {placesLeft} places restantes
         </div>
-      </div>
+      </KpiLink>
 
       {/* Panier moyen — sensible (marges), restreint au rôle owner+ */}
       <RoleGate
@@ -117,7 +153,7 @@ export function KpiStrip() {
           </div>
         }
       >
-        <div className="kpi col-span-2">
+        <KpiLink to="/commandes" className="kpi col-span-2">
           <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
             Panier moyen
           </div>
@@ -129,11 +165,11 @@ export function KpiStrip() {
           <div className="text-[11.5px] text-ink-3 mt-[10px]">
             Sur les commandes du jour
           </div>
-        </div>
+        </KpiLink>
       </RoleGate>
 
       {/* Occupation */}
-      <div className="kpi col-span-3">
+      <KpiLink to="/reservations" className="kpi col-span-3">
         <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
           Taux d'occupation
         </div>
@@ -158,7 +194,7 @@ export function KpiStrip() {
           {k.occupancy.tables.occupied} / {k.occupancy.tables.total} tables occupées ·{" "}
           {k.occupancy.tables.total - k.occupancy.tables.occupied} libres
         </div>
-      </div>
+      </KpiLink>
     </div>
   );
 }

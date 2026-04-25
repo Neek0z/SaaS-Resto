@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useReviews } from "@/hooks/useReviews";
 import { aggregateBySource } from "@/lib/api/reviews";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,9 @@ export function ReviewsCard() {
     <Card className="col-span-5 p-[18px]">
       <CardHeader>
         <CardTitle>
-          Avis clients · <span className="text-ember-soft">note globale</span>
+          <Link to="/avis" className="hover:text-ember-soft transition-colors">
+            Avis clients · <span className="text-ember-soft">note globale</span>
+          </Link>
         </CardTitle>
       </CardHeader>
 
