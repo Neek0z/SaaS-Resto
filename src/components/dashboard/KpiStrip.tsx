@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Lock } from "lucide-react";
 import { Delta } from "./Delta";
 import { KPIS, REVENUE_7D } from "@/lib/mock-data";
 import { cn, formatEuros } from "@/lib/utils";
+import { RoleGate } from "@/components/RoleGate";
 
 type Period = "today" | "week" | "month";
 
@@ -80,20 +82,35 @@ export function KpiStrip() {
         </div>
       </div>
 
-      {/* Panier moyen */}
-      <div className="kpi col-span-2">
-        <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
-          Panier moyen
+      {/* Panier moyen — sensible (marges), restreint au rôle owner+ */}
+      <RoleGate
+        resource="action.view_margins"
+        fallback={
+          <div className="kpi col-span-2 flex flex-col justify-center items-start gap-2 opacity-70">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold flex items-center gap-[6px]">
+              <Lock size={11} />
+              Panier moyen
+            </div>
+            <div className="text-[12px] text-ink-3 leading-snug">
+              Visible avec un accès propriétaire.
+            </div>
+          </div>
+        }
+      >
+        <div className="kpi col-span-2">
+          <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
+            Panier moyen
+          </div>
+          <div className="display font-medium text-[38px] leading-none mt-[14px] mb-[10px]">
+            {k.avgTicket.value.toFixed(1).replace(".", ",")}
+            <span className="text-[18px] text-ink-3 font-normal"> €</span>
+          </div>
+          <Delta value={k.avgTicket.delta} />
+          <div className="text-[11.5px] text-ink-3 mt-[10px]">
+            Boisson · 28% · Dessert · 41%
+          </div>
         </div>
-        <div className="display font-medium text-[38px] leading-none mt-[14px] mb-[10px]">
-          {k.avgTicket.value.toFixed(1).replace(".", ",")}
-          <span className="text-[18px] text-ink-3 font-normal"> €</span>
-        </div>
-        <Delta value={k.avgTicket.delta} />
-        <div className="text-[11.5px] text-ink-3 mt-[10px]">
-          Boisson · 28% · Dessert · 41%
-        </div>
-      </div>
+      </RoleGate>
 
       {/* Occupation */}
       <div className="kpi col-span-3">

@@ -24,7 +24,7 @@ export default function Login() {
 
   if (user) {
     const from = (location.state as { from?: string } | null)?.from;
-    return <Navigate to={from && from !== "/login" ? from : "/"} replace />;
+    return <Navigate to={from && from !== "/login" ? from : "/dashboard"} replace />;
   }
 
   const submit = async (e: FormEvent) => {
@@ -37,7 +37,7 @@ export default function Login() {
       setError(error);
       return;
     }
-    navigate("/", { replace: true });
+    navigate("/dashboard", { replace: true });
   };
 
   return (

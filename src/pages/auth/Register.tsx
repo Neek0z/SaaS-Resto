@@ -24,7 +24,7 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
 
   if (!isSupabaseConfigured) return <SupabaseMissing />;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -61,7 +61,7 @@ export default function Register() {
       );
       return;
     }
-    navigate("/", { replace: true });
+    navigate("/dashboard", { replace: true });
   };
 
   return (

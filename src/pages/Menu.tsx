@@ -1,118 +1,249 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDownUp, Plus, Search } from "lucide-react";
-import { listMenuItems } from "@/lib/api/menu";
-import type { MenuItem, StockLevel } from "@/lib/mock-data";
+import { useSearchParams } from "react-router-dom";
+import {
+  AlertTriangle,
+  FolderPlus,
+  GripVertical,
+  ImageOff,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { MenuRow, stockLabel } from "@/components/menu/MenuRow";
 import { cn } from "@/lib/utils";
+import { useMenu } from "@/hooks/useMenu";
+import type { MenuCategory, MenuItem } from "@/lib/menu-types";
+import { MenuItemDrawer } from "@/components/menu/MenuItemDrawer";
+import { NewCategoryModal } from "@/components/menu/NewCategoryModal";
+import { ConfirmDelete } from "@/components/menu/ConfirmDelete";
 
-type CatFilter = "all" | "Entrée" | "Plat" | "Dessert";
-type StockFilter = "all" | StockLevel;
-type SortKey = "sold" | "margin" | "trend" | "name";
+const eurosCompact = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 2,
+});
+
+type DrawerState =
+  | { mode: "closed" }
+  | { mode: "create"; categoryId: string }
+  | { mode: "edit"; item: MenuItem };
+
+type DeleteState =
+  | { kind: "none" }
+  | { kind: "item"; item: MenuItem }
+  | { kind: "category"; category: MenuCategory };
+
+const euros = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+});
 
 export default function Menu() {
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cat, setCat] = useState<CatFilter>("all");
-  const [stock, setStock] = useState<StockFilter>("all");
+  const menu = useMenu();
+  const {
+    categories,
+    items,
+    loading,
+    error,
+    reload,
+    addCategory,
+    renameCategory,
+    toggleCategoryActive,
+    removeCategory,
+    reorderCats,
+    addItem,
+    editItem,
+    toggleAvailable,
+    removeItem,
+    reorderIts,
+  } = menu;
+
+  const [params, setParams] = useSearchParams();
+  const urlCat = params.get("cat");
+  const [activeCatId, setActiveCatId] = useState<string | null>(urlCat);
+  const [drawer, setDrawer] = useState<DrawerState>({ mode: "closed" });
+  const [newCatOpen, setNewCatOpen] = useState(false);
+  const [confirm, setConfirm] = useState<DeleteState>({ kind: "none" });
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("sold");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [onlyUnavailable, setOnlyUnavailable] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  // Select first category when available.
+  useEffect(() => {
+    if (!activeCatId && categories.length > 0) setActiveCatId(categories[0].id);
+    if (activeCatId && !categories.find((c) => c.id === activeCatId)) {
+      setActiveCatId(categories[0]?.id ?? null);
+    }
+  }, [categories, activeCatId]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        setItems(await listMenuItems());
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    if (activeCatId && params.get("cat") !== activeCatId) {
+      const next = new URLSearchParams(params);
+      next.set("cat", activeCatId);
+      setParams(next, { replace: true });
+    }
+  }, [activeCatId, params, setParams]);
 
-  const filtered = useMemo(() => {
-    const list = items.filter((m) => {
-      if (cat !== "all" && m.cat !== cat) return false;
-      if (stock !== "all" && m.stock !== stock) return false;
-      if (query && !m.name.toLowerCase().includes(query.toLowerCase())) return false;
-      return true;
-    });
+  const unavailableCount = useMemo(
+    () => items.filter((i) => !i.available).length,
+    [items]
+  );
 
-    return [...list].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else cmp = (a[sortKey] as number) - (b[sortKey] as number);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [items, cat, stock, query, sortKey, sortDir]);
+  const unavailableItems = useMemo(
+    () => items.filter((i) => !i.available),
+    [items]
+  );
 
   const stats = useMemo(() => {
     const total = items.length;
-    const outOfStock = items.filter((m) => m.stock === "out").length;
-    const lowStock = items.filter((m) => m.stock === "low").length;
-    const topSeller = items.reduce<MenuItem | null>(
-      (best, m) => (!best || m.sold > best.sold ? m : best),
-      null
-    );
-    const avgMargin =
+    const activeCount = items.filter((i) => i.available).length;
+    const catsActive = categories.filter((c) => c.active).length;
+    const avgPrice =
       items.length > 0
-        ? Math.round(items.reduce((s, m) => s + m.margin, 0) / items.length)
+        ? items.reduce((s, i) => s + i.price, 0) / items.length
         : 0;
-    return { total, outOfStock, lowStock, topSeller, avgMargin };
+    const withPhoto = items.filter((i) => i.photoUrl).length;
+    return {
+      total,
+      activeCount,
+      catsActive,
+      avgPrice,
+      withPhoto,
+    };
+  }, [items, categories]);
+
+  const visibleItems = useMemo(() => {
+    const base = activeCatId ? items.filter((i) => i.categoryId === activeCatId) : [];
+    const sorted = [...base].sort((a, b) => a.position - b.position);
+    return sorted.filter((i) => {
+      if (onlyUnavailable && i.available) return false;
+      if (!query) return true;
+      const q = query.toLowerCase();
+      return (
+        i.name.toLowerCase().includes(q) ||
+        (i.description ?? "").toLowerCase().includes(q) ||
+        i.tags.join(" ").toLowerCase().includes(q)
+      );
+    });
+  }, [items, activeCatId, query, onlyUnavailable]);
+
+  const catsSorted = useMemo(
+    () => [...categories].sort((a, b) => a.position - b.position),
+    [categories]
+  );
+
+  const countByCat = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const it of items) {
+      map.set(it.categoryId, (map.get(it.categoryId) ?? 0) + 1);
+    }
+    return map;
   }, [items]);
 
-  const alertItems = items.filter((m) => m.stock === "out" || m.stock === "low");
+  const onDropCat = (overId: string, draggedId: string) => {
+    if (overId === draggedId) return;
+    const order = catsSorted.map((c) => c.id);
+    const from = order.indexOf(draggedId);
+    const to = order.indexOf(overId);
+    if (from === -1 || to === -1) return;
+    order.splice(from, 1);
+    order.splice(to, 0, draggedId);
+    void reorderCats(order);
+  };
 
-  const toggleSort = (k: SortKey) => {
-    if (sortKey === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else {
-      setSortKey(k);
-      setSortDir(k === "name" ? "asc" : "desc");
+  const onDropItem = (overId: string, draggedId: string) => {
+    if (!activeCatId || overId === draggedId) return;
+    const order = [...items]
+      .filter((i) => i.categoryId === activeCatId)
+      .sort((a, b) => a.position - b.position)
+      .map((i) => i.id);
+    const from = order.indexOf(draggedId);
+    const to = order.indexOf(overId);
+    if (from === -1 || to === -1) return;
+    order.splice(from, 1);
+    order.splice(to, 0, draggedId);
+    void reorderIts(activeCatId, order);
+  };
+
+  const startRename = (c: MenuCategory) => {
+    setRenamingId(c.id);
+    setRenameValue(c.name);
+  };
+  const commitRename = () => {
+    if (renamingId && renameValue.trim()) {
+      void renameCategory(renamingId, renameValue.trim());
     }
+    setRenamingId(null);
   };
 
   return (
     <>
       <div className="flex items-end justify-between mb-5 pt-2">
         <div>
-          <div className="chip-uppercase mb-1">Carte · Gestion stocks</div>
+          <div className="chip-uppercase mb-1">Carte · gestion du menu</div>
           <h2 className="display font-medium text-[26px] leading-tight m-0">
-            Menu <em className="not-italic italic text-ember-soft font-normal">&amp; stocks</em>
+            Menu <em className="not-italic italic text-ember-soft font-normal">& plats</em>
           </h2>
         </div>
-        <button className="btn-primary">
-          <Plus size={13} />
-          Ajouter un plat
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="btn-ghost inline-flex items-center gap-2"
+            onClick={() => setNewCatOpen(true)}
+          >
+            <FolderPlus size={13} />
+            Nouvelle catégorie
+          </button>
+          <button
+            className="btn-primary inline-flex items-center gap-2"
+            onClick={() => {
+              if (!activeCatId) return;
+              setDrawer({ mode: "create", categoryId: activeCatId });
+            }}
+            disabled={!activeCatId}
+          >
+            <Plus size={13} />
+            Ajouter un plat
+          </button>
+        </div>
       </div>
 
-      {/* Stock alerts banner */}
-      {alertItems.length > 0 && (
+      {/* Alerte indisponibilités */}
+      {unavailableItems.length > 0 && (
         <Card className="mb-4 border-amber/30" style={{ background: "rgba(232,176,74,0.04)" }}>
           <div className="flex items-start gap-3">
             <div className="w-[28px] h-[28px] rounded-md bg-amber/15 text-amber grid place-items-center flex-shrink-0">
               <AlertTriangle size={14} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="chip-uppercase mb-1 text-amber">Attention stocks</div>
+              <div className="chip-uppercase mb-1 text-amber">Plats indisponibles</div>
               <div className="text-[13px] text-ink-1 font-medium mb-2">
-                {alertItems.length} plat{alertItems.length > 1 ? "s" : ""} à traiter en priorité
+                {unavailableItems.length} plat{unavailableItems.length > 1 ? "s" : ""} masqué{unavailableItems.length > 1 ? "s" : ""} de la carte
               </div>
               <div className="flex flex-wrap gap-2">
-                {alertItems.map((m) => (
-                  <span
-                    key={m.name}
-                    className={cn(
-                      "inline-flex items-center gap-2 px-2 py-1 rounded-md text-[11.5px] border",
-                      m.stock === "out"
-                        ? "bg-danger/10 border-danger/30 text-danger"
-                        : "bg-amber/10 border-amber/30 text-amber"
-                    )}
-                  >
-                    <span className="font-medium">{m.name}</span>
-                    <span className="mono opacity-70">· {stockLabel(m.stock)}</span>
+                {unavailableItems.slice(0, 12).map((m) => {
+                  const cat = categories.find((c) => c.id === m.categoryId);
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setActiveCatId(m.categoryId);
+                        setDrawer({ mode: "edit", item: m });
+                      }}
+                      className="inline-flex items-center gap-2 px-2 py-1 rounded-md text-[11.5px] border bg-amber/10 border-amber/30 text-amber hover:bg-amber/15 transition-colors"
+                      title={cat ? `Catégorie : ${cat.name}` : ""}
+                    >
+                      <span className="font-medium">{m.name}</span>
+                      {cat && <span className="mono opacity-70">· {cat.name}</span>}
+                    </button>
+                  );
+                })}
+                {unavailableItems.length > 12 && (
+                  <span className="text-[11.5px] text-ink-4 self-center">
+                    +{unavailableItems.length - 12} autres…
                   </span>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -125,62 +256,60 @@ export default function Menu() {
           className="col-span-3"
           label="Plats au menu"
           value={stats.total}
-          hint={`${items.filter((m) => m.cat === "Entrée").length} entrées · ${items.filter((m) => m.cat === "Plat").length} plats · ${items.filter((m) => m.cat === "Dessert").length} desserts`}
+          hint={`${stats.activeCount} disponible${stats.activeCount > 1 ? "s" : ""} · ${stats.withPhoto} avec photo`}
           tone="cream"
         />
         <StatTile
           className="col-span-3"
-          label="Top vente"
-          value={stats.topSeller ? stats.topSeller.sold : "—"}
-          hint={stats.topSeller ? stats.topSeller.name : ""}
+          label="Catégories"
+          value={categories.length}
+          hint={`${stats.catsActive} active${stats.catsActive > 1 ? "s" : ""} · ${categories.length - stats.catsActive} masquée${categories.length - stats.catsActive > 1 ? "s" : ""}`}
           tone="ember"
         />
         <StatTile
           className="col-span-3"
-          label="Marge moyenne"
-          value={`${stats.avgMargin}%`}
+          label="Prix moyen"
+          value={stats.total > 0 ? eurosCompact.format(stats.avgPrice) : "—"}
           hint="Sur l'ensemble de la carte"
           tone="ok"
         />
         <StatTile
           className="col-span-3"
-          label="Alertes stock"
-          value={stats.outOfStock + stats.lowStock}
-          hint={`${stats.outOfStock} rupture${stats.outOfStock > 1 ? "s" : ""} · ${stats.lowStock} stock bas`}
-          tone="danger"
+          label="Indisponibles"
+          value={unavailableCount}
+          hint={
+            unavailableCount === 0
+              ? "Tous les plats sont servis"
+              : "Masqués sur la carte digitale"
+          }
+          tone={unavailableCount > 0 ? "danger" : "ok"}
         />
       </div>
 
-      {/* Filters */}
+      {/* Top bar */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="segmented">
-            {(["all", "Entrée", "Plat", "Dessert"] as const).map((c) => (
-              <button key={c} className={cn(cat === c && "active")} onClick={() => setCat(c)}>
-                {c === "all" ? "Toutes catégories" : c + "s"}
-              </button>
-            ))}
-          </div>
-          <span className="text-ink-4 text-[11px]">|</span>
-          <div className="segmented">
-            {(["all", "ok", "low", "out"] as const).map((s) => (
-              <button key={s} className={cn(stock === s && "active")} onClick={() => setStock(s)}>
-                {s === "all"
-                  ? "Tous stocks"
-                  : s === "ok"
-                  ? "En stock"
-                  : s === "low"
-                  ? "Bas"
-                  : "Rupture"}
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={() => setOnlyUnavailable((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-2 text-[12px] px-3 py-[7px] rounded-[10px] border transition-all",
+              onlyUnavailable
+                ? "bg-danger/10 border-danger text-danger"
+                : "bg-bg-2 border-line text-ink-3 hover:text-ink-1 hover:border-line-2"
+            )}
+          >
+            <AlertTriangle size={12} />
+            Indisponibles uniquement
+            {unavailableCount > 0 && (
+              <span className="mono text-[10.5px] ml-1">· {unavailableCount}</span>
+            )}
+          </button>
 
-          <div className="ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] w-[260px] text-[13px]">
+          <div className="ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] w-[280px] text-[13px]">
             <Search size={14} className="text-ink-3" />
             <input
               className="flex-1 bg-transparent border-0 outline-none text-ink-1 placeholder:text-ink-3"
-              placeholder="Nom du plat…"
+              placeholder="Nom, description, tag…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -196,97 +325,332 @@ export default function Menu() {
         </div>
       </Card>
 
-      {/* Full menu table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {filtered.length} plat{filtered.length > 1 ? "s" : ""} ·{" "}
-            <span className="text-ember-soft">
-              tri par {sortLabel(sortKey)} {sortDir === "asc" ? "↑" : "↓"}
-            </span>
-          </CardTitle>
-          <span className="text-[11px] text-ink-4 mono uppercase tracking-[0.08em]">
-            Clic colonne pour trier
-          </span>
-        </CardHeader>
-
-        <div>
-          <div
-            className="grid items-center gap-3 py-[10px] px-2 text-[10.5px] uppercase tracking-[0.08em] text-ink-4 border-b border-line mb-1 font-semibold"
-            style={{ gridTemplateColumns: "1fr 60px 80px 60px" }}
-          >
-            <SortHeader active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")}>
-              Plat
-            </SortHeader>
-            <SortHeader
-              active={sortKey === "sold"}
-              dir={sortDir}
-              onClick={() => toggleSort("sold")}
-              align="right"
+      {error && (
+        <Card className="mb-4 border-danger/40" style={{ background: "rgba(224,80,80,0.05)" }}>
+          <div className="flex items-center gap-2 text-danger text-[12.5px]">
+            <AlertTriangle size={14} />
+            <span>{error}</span>
+            <button
+              className="ml-auto btn-ghost text-[11px]"
+              onClick={() => void reload()}
             >
-              Vendus
-            </SortHeader>
-            <SortHeader active={sortKey === "margin"} dir={sortDir} onClick={() => toggleSort("margin")}>
-              Marge
-            </SortHeader>
-            <SortHeader
-              active={sortKey === "trend"}
-              dir={sortDir}
-              onClick={() => toggleSort("trend")}
-              align="right"
-            >
-              Stock
-            </SortHeader>
+              Réessayer
+            </button>
           </div>
+        </Card>
+      )}
 
-          {loading ? (
-            <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-ink-3 text-[13px]">
-              Aucun plat ne correspond aux filtres.
+      {/* Two columns */}
+      <div className="grid gap-4" style={{ gridTemplateColumns: "280px 1fr" }}>
+        {/* Left: categories */}
+        <Card className="p-2 self-start">
+          <div className="flex items-center justify-between px-2 py-2">
+            <div className="chip-uppercase">Catégories</div>
+            <span className="text-[10.5px] text-ink-4 mono">
+              {catsSorted.length}
+            </span>
+          </div>
+          {loading && catsSorted.length === 0 ? (
+            <div className="p-4 text-[12px] text-ink-3">Chargement…</div>
+          ) : catsSorted.length === 0 ? (
+            <div className="p-4 text-[12px] text-ink-4 italic text-center">
+              Aucune catégorie.<br />
+              Créez-en une pour commencer.
             </div>
           ) : (
-            filtered.map((m) => <MenuRow key={m.name} m={m} />)
+            <div className="flex flex-col gap-1">
+              {catsSorted.map((c) => {
+                const active = c.id === activeCatId;
+                const count = countByCat.get(c.id) ?? 0;
+                const isRenaming = renamingId === c.id;
+                return (
+                  <div
+                    key={c.id}
+                    draggable={!isRenaming}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("cat", c.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      const id = e.dataTransfer.getData("cat");
+                      if (id) onDropCat(c.id, id);
+                    }}
+                    onClick={() => setActiveCatId(c.id)}
+                    className={cn(
+                      "group flex items-center gap-2 px-2 py-2 rounded-[8px] cursor-pointer select-none transition-colors",
+                      active
+                        ? "bg-bg-3"
+                        : "hover:bg-bg-2"
+                    )}
+                  >
+                    <GripVertical
+                      size={13}
+                      className="text-ink-4 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab"
+                    />
+                    <div className="flex-1 min-w-0">
+                      {isRenaming ? (
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename();
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          className="w-full bg-bg-2 border border-line rounded-[6px] px-[6px] py-[3px] text-[12.5px] text-ink-1 outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            "text-[12.5px] truncate",
+                            active ? "text-ink-1 font-semibold" : "text-ink-2",
+                            !c.active && "line-through opacity-60"
+                          )}
+                        >
+                          {c.name}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10.5px] mono text-ink-4">{count}</span>
+                    <ToggleDot
+                      active={c.active}
+                      onChange={(v) => {
+                        void toggleCategoryActive(c.id, v);
+                      }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startRename(c);
+                      }}
+                      className="icon-btn w-[22px] h-[22px] opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Renommer"
+                    >
+                      <Pencil size={10} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirm({ kind: "category", category: c });
+                      }}
+                      className="icon-btn w-[22px] h-[22px] opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
-        </div>
-      </Card>
+        </Card>
+
+        {/* Right: items */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {activeCatId ? (
+                <>
+                  {catsSorted.find((c) => c.id === activeCatId)?.name ?? "—"}{" "}
+                  <span className="text-ember-soft">· {visibleItems.length} plat{visibleItems.length > 1 ? "s" : ""}</span>
+                </>
+              ) : (
+                "Aucune catégorie sélectionnée"
+              )}
+            </CardTitle>
+            <span className="text-[11px] text-ink-4 mono uppercase tracking-[0.08em]">
+              Glissez pour réordonner
+            </span>
+          </CardHeader>
+
+          {loading && visibleItems.length === 0 ? (
+            <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
+          ) : !activeCatId ? (
+            <div className="py-16 text-center text-ink-4 text-[13px] italic">
+              Créez une première catégorie pour y ajouter des plats.
+            </div>
+          ) : visibleItems.length === 0 ? (
+            <div className="py-16 text-center text-ink-4 text-[13px] italic">
+              {query || onlyUnavailable
+                ? "Aucun plat ne correspond au filtre."
+                : "Aucun plat dans cette catégorie."}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {visibleItems.map((it) => (
+                <ItemRow
+                  key={it.id}
+                  item={it}
+                  onDrop={onDropItem}
+                  onToggle={() => void toggleAvailable(it.id)}
+                  onEdit={() => setDrawer({ mode: "edit", item: it })}
+                  onDelete={() => setConfirm({ kind: "item", item: it })}
+                />
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Drawer edit/create */}
+      <MenuItemDrawer
+        open={drawer.mode !== "closed"}
+        mode={drawer.mode === "edit" ? "edit" : "create"}
+        item={drawer.mode === "edit" ? drawer.item : null}
+        categories={catsSorted.filter((c) => c.active)}
+        defaultCategoryId={
+          drawer.mode === "create" ? drawer.categoryId : activeCatId ?? ""
+        }
+        onClose={() => setDrawer({ mode: "closed" })}
+        onCreate={async (payload) => {
+          const created = await addItem(payload);
+          return created;
+        }}
+        onUpdate={editItem}
+      />
+
+      {/* New category */}
+      <NewCategoryModal
+        open={newCatOpen}
+        onClose={() => setNewCatOpen(false)}
+        onCreate={async (name) => {
+          const c = await addCategory(name);
+          if (c) setActiveCatId(c.id);
+        }}
+      />
+
+      {/* Delete confirm */}
+      <ConfirmDelete
+        open={confirm.kind !== "none"}
+        title={
+          confirm.kind === "item"
+            ? "Supprimer ce plat ?"
+            : confirm.kind === "category"
+            ? "Supprimer cette catégorie ?"
+            : ""
+        }
+        body={
+          confirm.kind === "item"
+            ? `« ${confirm.item.name} » sera définitivement retiré du menu.`
+            : confirm.kind === "category"
+            ? `« ${confirm.category.name} » et tous ses plats seront supprimés.`
+            : ""
+        }
+        onClose={() => setConfirm({ kind: "none" })}
+        onConfirm={async () => {
+          if (confirm.kind === "item") await removeItem(confirm.item.id);
+          if (confirm.kind === "category") await removeCategory(confirm.category.id);
+        }}
+      />
     </>
   );
 }
 
-function sortLabel(k: SortKey) {
-  return k === "sold" ? "ventes" : k === "margin" ? "marge" : k === "trend" ? "tendance" : "nom";
-}
-
-function SortHeader({
-  children,
-  active,
-  dir,
-  onClick,
-  align = "left",
+function ItemRow({
+  item,
+  onDrop,
+  onToggle,
+  onEdit,
+  onDelete,
 }: {
-  children: React.ReactNode;
-  active: boolean;
-  dir: "asc" | "desc";
-  onClick: () => void;
-  align?: "left" | "right";
+  item: MenuItem;
+  onDrop: (overId: string, draggedId: string) => void;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("item", item.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        const id = e.dataTransfer.getData("item");
+        if (id) onDrop(item.id, id);
+      }}
       className={cn(
-        "inline-flex items-center gap-1 transition-colors hover:text-ink-2",
-        active && "text-ember-soft",
-        align === "right" && "justify-end"
+        "group grid gap-3 items-center p-3 bg-bg-2 border border-line rounded-[12px] transition-all hover:border-line-2",
+        !item.available && "opacity-60"
       )}
+      style={{ gridTemplateColumns: "14px 80px 1fr auto auto" }}
     >
-      {children}
-      {active ? (
-        <span className="mono text-[9px]">{dir === "asc" ? "↑" : "↓"}</span>
-      ) : (
-        <ArrowDownUp size={9} className="opacity-40" />
-      )}
-    </button>
+      <GripVertical
+        size={13}
+        className="text-ink-4 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab"
+      />
+
+      <div className="w-[80px] h-[80px] rounded-[8px] overflow-hidden bg-bg-3 border border-line flex items-center justify-center flex-shrink-0">
+        {item.photoUrl ? (
+          <img
+            src={item.photoUrl}
+            alt=""
+            className={cn("w-full h-full object-cover", !item.available && "grayscale")}
+          />
+        ) : (
+          <ImageOff size={18} className="text-ink-4" />
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-[3px]">
+          <div
+            className={cn(
+              "text-[13.5px] font-semibold text-ink-1 truncate",
+              !item.available && "line-through"
+            )}
+          >
+            {item.name}
+          </div>
+          {item.badge && (
+            <span className="channel-pill text-[10px]" style={{ color: "var(--ember-soft)", borderColor: "var(--ember-deep)" }}>
+              ● {item.badge}
+            </span>
+          )}
+        </div>
+        {item.description && (
+          <div className="text-[11.5px] text-ink-3 line-clamp-1 mb-1">
+            {item.description}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-[6px] text-[10.5px]">
+          {item.tags.map((t) => (
+            <span
+              key={t}
+              className="mono text-ink-3 bg-bg-3 border border-line rounded-full px-[7px] py-[1px]"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="text-right">
+        <div className="display text-[16px] font-medium leading-none">
+          {euros.format(item.price)}
+        </div>
+        <div className="text-[10.5px] text-ink-4 mono mt-[3px]">{item.tvaRate}% TVA</div>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <ToggleDot active={item.available} onChange={onToggle} />
+        <button className="icon-btn" onClick={onEdit} title="Éditer">
+          <Pencil size={12} />
+        </button>
+        <button
+          className="icon-btn hover:text-danger"
+          onClick={onDelete}
+          title="Supprimer"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -322,5 +686,35 @@ function StatTile({
       </div>
       <div className="text-[11.5px] text-ink-3 truncate">{hint}</div>
     </div>
+  );
+}
+
+function ToggleDot({
+  active,
+  onChange,
+}: {
+  active: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!active);
+      }}
+      className={cn(
+        "relative w-[28px] h-[16px] rounded-full transition-colors flex-shrink-0",
+        active ? "bg-ember" : "bg-bg-3 border border-line"
+      )}
+      title={active ? "Disponible" : "Indisponible"}
+    >
+      <span
+        className={cn(
+          "absolute top-[2px] w-[10px] h-[10px] rounded-full bg-cream transition-all",
+          active ? "left-[15px]" : "left-[2px]"
+        )}
+      />
+    </button>
   );
 }

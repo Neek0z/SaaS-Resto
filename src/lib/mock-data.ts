@@ -360,68 +360,6 @@ export const TEAM: TeamMember[] = [
   { name: "Sofia Rossi", role: "Accueil", status: "late", avatar: "SR", hours: "18:30→", start: 18.75, end: 24, kind: "late" },
 ];
 
-export type DigitalMenuCategory = {
-  id: string;
-  name: string;
-  items: { name: string; price: number; description?: string; tag?: string }[];
-};
-
-export type DigitalMenuConfig = {
-  url: string;
-  published: boolean;
-  scansToday: number;
-  scansWeek: number;
-  scansDelta: number;
-  avgTime: string;
-  conversion: number;
-  languages: string[];
-  theme: "dark" | "light";
-  categories: DigitalMenuCategory[];
-};
-
-export const DIGITAL_MENU: DigitalMenuConfig = {
-  url: "menu.maison-severe.fr",
-  published: true,
-  scansToday: 127,
-  scansWeek: 842,
-  scansDelta: 18.4,
-  avgTime: "3 min 24",
-  conversion: 62,
-  languages: ["FR", "EN", "IT"],
-  theme: "dark",
-  categories: [
-    {
-      id: "entrees",
-      name: "Entrées",
-      items: [
-        { name: "Tartare de bœuf au couteau", price: 18, description: "Câpres, échalote, jaune d'œuf bio", tag: "signature" },
-        { name: "Velouté de panais, huile de noisette", price: 14, description: "Panais de plein champ, crème légère" },
-        { name: "Burrata des Pouilles, tomates anciennes", price: 16, description: "Basilic, huile d'olive Ligurie" },
-      ],
-    },
-    {
-      id: "plats",
-      name: "Plats",
-      items: [
-        { name: "Entrecôte grillée, sauce béarnaise", price: 32, description: "Pommes grenaille, salade d'herbes", tag: "signature" },
-        { name: "Sole meunière", price: 36, description: "Beurre noisette, citron confit", tag: "limité" },
-        { name: "Burger Sévère", price: 22, description: "Bœuf Black Angus, cheddar affiné, oignons confits" },
-        { name: "Risotto champignons & truffe", price: 28, description: "Carnaroli, parmesan 24 mois" },
-        { name: "Plateau fruits de mer (2 pers.)", price: 68, description: "Huîtres, bulots, crevettes, tourteau", tag: "rupture" },
-      ],
-    },
-    {
-      id: "desserts",
-      name: "Desserts",
-      items: [
-        { name: "Crème brûlée à la fève tonka", price: 9, description: "Vanille Bourbon, sucre Muscovado", tag: "signature" },
-        { name: "Tarte au citron meringuée", price: 9, description: "Pâte sablée, citron de Menton" },
-        { name: "Moelleux chocolat, glace noisette", price: 10, description: "Chocolat 70%, piémont" },
-      ],
-    },
-  ],
-};
-
 export type LoyaltyTier = "bronze" | "silver" | "gold" | "platine";
 
 export type LoyaltyCustomer = {

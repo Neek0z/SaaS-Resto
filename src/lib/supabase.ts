@@ -1,9 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "./supabase-env";
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-if (!url || !anonKey) {
+if (!isSupabaseConfigured) {
   // eslint-disable-next-line no-console
   console.warn(
     "[supabase] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY manquants — fallback sur les mocks."
@@ -11,6 +9,6 @@ if (!url || !anonKey) {
 }
 
 export const supabase =
-  url && anonKey ? createClient(url, anonKey) : null;
+  SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-export const isSupabaseConfigured = Boolean(url && anonKey);
+export { isSupabaseConfigured };

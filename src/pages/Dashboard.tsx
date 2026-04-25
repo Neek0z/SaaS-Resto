@@ -7,6 +7,7 @@ import { MenuCard } from "@/components/dashboard/MenuCard";
 import { ReviewsCard } from "@/components/dashboard/ReviewsCard";
 import { TeamCard } from "@/components/dashboard/TeamCard";
 import { AlertsCard } from "@/components/dashboard/AlertsCard";
+import { EventsTodayCard } from "@/components/dashboard/EventsTodayCard";
 
 export default function Dashboard() {
   return (
@@ -16,6 +17,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-12 gap-4 mb-4">
         <RevenueChart />
         <CoversChart />
+      </div>
+
+      <div className="grid grid-cols-12 gap-4 mb-4">
+        <EventsTodayCard />
       </div>
 
       <div className="grid grid-cols-12 gap-4 mb-4">

@@ -1,59 +1,55 @@
-// Decorative QR visual — stylized pattern, not a real QR.
-// Swap to a real QR library (e.g. qrcode.react) when wiring to production.
+import { useEffect, useState } from "react";
+import { ImageOff } from "lucide-react";
+import { useQRCode } from "@/hooks/useQRCode";
 
-const SIZE = 25;
+export function QRPreview({ value, size = 200 }: { value: string; size?: number }) {
+  const { generateQR } = useQRCode();
+  const [src, setSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
-function makeMatrix(seed: string): boolean[][] {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  const rng = () => {
-    h = (h * 1103515245 + 12345) & 0x7fffffff;
-    return h / 0x7fffffff;
-  };
-  const m: boolean[][] = Array.from({ length: SIZE }, () =>
-    Array.from({ length: SIZE }, () => rng() > 0.5)
-  );
-  // Finder patterns (3 corners)
-  const stamp = (ox: number, oy: number) => {
-    for (let y = 0; y < 7; y++) {
-      for (let x = 0; x < 7; x++) {
-        const on =
-          x === 0 ||
-          x === 6 ||
-          y === 0 ||
-          y === 6 ||
-          (x >= 2 && x <= 4 && y >= 2 && y <= 4);
-        m[oy + y][ox + x] = on;
-      }
-    }
-  };
-  stamp(0, 0);
-  stamp(SIZE - 7, 0);
-  stamp(0, SIZE - 7);
-  return m;
-}
+  useEffect(() => {
+    let cancelled = false;
+    setSrc(null);
+    setError(false);
+    generateQR(value, {
+      size,
+      color: "#14110e",
+      background: "#f6f1e7",
+      errorCorrectionLevel: "M",
+      margin: 1,
+    })
+      .then((data) => {
+        if (!cancelled) setSrc(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [value, size, generateQR]);
 
-export function QRPreview({ value, size = 180 }: { value: string; size?: number }) {
-  const m = makeMatrix(value);
-  const cell = size / SIZE;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <rect width={size} height={size} fill="#f6f1e7" rx={10} />
-      {m.map((row, y) =>
-        row.map((on, x) =>
-          on ? (
-            <rect
-              key={`${x}-${y}`}
-              x={x * cell + 1}
-              y={y * cell + 1}
-              width={cell - 0.5}
-              height={cell - 0.5}
-              fill="#14110e"
-              rx={cell * 0.15}
-            />
-          ) : null
-        )
-      )}
-    </svg>
-  );
+  if (error) {
+    return (
+      <div
+        className="grid place-items-center bg-cream rounded-[8px]"
+        style={{ width: size, height: size }}
+      >
+        <ImageOff size={20} className="text-ink-4" />
+      </div>
+    );
+  }
+
+  if (!src) {
+    return (
+      <div
+        className="grid place-items-center bg-cream rounded-[8px] text-[11px] text-ink-4"
+        style={{ width: size, height: size }}
+      >
+        Génération…
+      </div>
+    );
+  }
+
+  return <img src={src} alt={`QR code ${value}`} width={size} height={size} className="block" />;
 }

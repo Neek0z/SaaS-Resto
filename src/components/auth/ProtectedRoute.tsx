@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase-env";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupabaseMissing } from "./SupabaseMissing";
 

@@ -8,15 +8,35 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
+import { isSupabaseConfigured } from "@/lib/supabase-env";
 import type { Plan } from "@/config/plans";
+import { DEV_OVERRIDE_ROLE, ROLE_ORDER, type Role } from "@/config/roles";
+import type { PermissionOverrides } from "@/config/permissions";
+
+const ROLE_OVERRIDE_KEY = "dev:role";
+
+function readRoleOverride(): Role | null {
+  if (typeof sessionStorage === "undefined") return null;
+  const raw = sessionStorage.getItem(ROLE_OVERRIDE_KEY);
+  if (!raw) return null;
+  return ROLE_ORDER.includes(raw as Role) ? (raw as Role) : null;
+}
 
 export type RestaurantProfile = {
   id: string;
   name: string;
   plan: Plan;
   billingCycle: "monthly" | "yearly";
+  rolePermissions: PermissionOverrides;
+  slug: string | null;
+  logoUrl: string | null;
+};
+
+export type UserProfile = {
+  id: string;
+  email: string;
+  role: Role;
 };
 
 type AuthResult = { error: string | null };
@@ -25,6 +45,11 @@ type AuthContextValue = {
   user: User | null;
   session: Session | null;
   restaurant: RestaurantProfile | null;
+  profile: UserProfile | null;
+  role: Role;
+  actualRole: Role;
+  roleOverride: Role | null;
+  setRoleOverride: (role: Role | null) => void;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (
@@ -39,6 +64,15 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+let supabasePromise: Promise<SupabaseClient | null> | null = null;
+function getSupabase(): Promise<SupabaseClient | null> {
+  if (!isSupabaseConfigured) return Promise.resolve(null);
+  if (!supabasePromise) {
+    supabasePromise = import("@/lib/supabase").then((m) => m.supabase);
+  }
+  return supabasePromise;
+}
 
 function translateAuthError(message: string | undefined): string {
   if (!message) return "Une erreur est survenue.";
@@ -71,107 +105,153 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [restaurant, setRestaurant] = useState<RestaurantProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roleOverrideState, setRoleOverrideState] = useState<Role | null>(() =>
+    readRoleOverride()
+  );
   const mounted = useRef(true);
 
-  const loadRestaurant = useCallback(async (uid: string | null) => {
-    if (!supabase || !uid) {
-      setRestaurant(null);
-      return;
+  const setRoleOverride = useCallback((next: Role | null) => {
+    if (typeof sessionStorage !== "undefined") {
+      if (next) sessionStorage.setItem(ROLE_OVERRIDE_KEY, next);
+      else sessionStorage.removeItem(ROLE_OVERRIDE_KEY);
     }
-    try {
-      const { data, error } = await supabase
-        .from("app_users")
-        .select("restaurant_id, restaurants(id, name, plan, billing_cycle)")
-        .eq("id", uid)
-        .maybeSingle();
+    setRoleOverrideState(next);
+  }, []);
 
-      if (error) {
+  const loadRestaurant = useCallback(
+    async (sb: SupabaseClient | null, uid: string | null) => {
+      if (!sb || !uid) {
+        setRestaurant(null);
+        setProfile(null);
+        return;
+      }
+      try {
+        const { data, error } = await sb
+          .from("app_users")
+          .select(
+            "id, email, role, restaurant_id, restaurants(id, name, plan, billing_cycle, role_permissions, slug, logo_url)"
+          )
+          .eq("id", uid)
+          .maybeSingle();
+
+        if (error) {
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.warn("[auth] loadRestaurant error:", error.message);
+          }
+          setRestaurant(null);
+          setProfile(null);
+          return;
+        }
+        if (!data) {
+          setRestaurant(null);
+          setProfile(null);
+          return;
+        }
+        const row = data as unknown as {
+          id: string;
+          email: string;
+          role: Role;
+          restaurants:
+            | {
+                id: string;
+                name: string;
+                plan: Plan;
+                billing_cycle: "monthly" | "yearly";
+                role_permissions: PermissionOverrides | null;
+                slug: string | null;
+                logo_url: string | null;
+              }
+            | null;
+        };
+        setProfile({ id: row.id, email: row.email, role: row.role });
+        if (!row.restaurants) {
+          setRestaurant(null);
+          return;
+        }
+        setRestaurant({
+          id: row.restaurants.id,
+          name: row.restaurants.name,
+          plan: row.restaurants.plan,
+          billingCycle: row.restaurants.billing_cycle,
+          rolePermissions: row.restaurants.role_permissions ?? {},
+          slug: row.restaurants.slug ?? null,
+          logoUrl: row.restaurants.logo_url ?? null,
+        });
+      } catch (e) {
         if (import.meta.env.DEV) {
           // eslint-disable-next-line no-console
-          console.warn("[auth] loadRestaurant error:", error.message);
+          console.warn("[auth] loadRestaurant threw:", e);
         }
         setRestaurant(null);
-        return;
+        setProfile(null);
       }
-      if (!data) {
-        setRestaurant(null);
-        return;
-      }
-      const r = (data as unknown as {
-        restaurants:
-          | { id: string; name: string; plan: Plan; billing_cycle: "monthly" | "yearly" }
-          | null;
-      }).restaurants;
-      if (!r) {
-        setRestaurant(null);
-        return;
-      }
-      setRestaurant({
-        id: r.id,
-        name: r.name,
-        plan: r.plan,
-        billingCycle: r.billing_cycle,
-      });
-    } catch (e) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.warn("[auth] loadRestaurant threw:", e);
-      }
-      setRestaurant(null);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     mounted.current = true;
-    if (!supabase) {
+    if (!isSupabaseConfigured) {
       setLoading(false);
       return;
     }
 
-    // Fallback de sécurité : si rien ne répond en 5s, on débloque l'UI.
     const safety = setTimeout(() => {
       if (mounted.current) setLoading(false);
     }, 5000);
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
+    let unsub: (() => void) | null = null;
+
+    void getSupabase().then(async (sb) => {
+      if (!sb || !mounted.current) {
+        if (mounted.current) setLoading(false);
+        clearTimeout(safety);
+        return;
+      }
+      try {
+        const { data } = await sb.auth.getSession();
         if (!mounted.current) return;
         setSession(data.session);
         setUser(data.session?.user ?? null);
         setLoading(false);
-        // Chargement du restaurant en arrière-plan — ne bloque pas l'UI.
-        void loadRestaurant(data.session?.user.id ?? null);
-      })
-      .catch(() => {
+        void loadRestaurant(sb, data.session?.user.id ?? null);
+      } catch {
         if (mounted.current) setLoading(false);
-      })
-      .finally(() => clearTimeout(safety));
+      } finally {
+        clearTimeout(safety);
+      }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!mounted.current) return;
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      void loadRestaurant(newSession?.user.id ?? null);
+      const { data: sub } = sb.auth.onAuthStateChange((_event, newSession) => {
+        if (!mounted.current) return;
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        void loadRestaurant(sb, newSession?.user.id ?? null);
+      });
+      unsub = () => sub.subscription.unsubscribe();
     });
 
     return () => {
       mounted.current = false;
-      sub.subscription.unsubscribe();
+      clearTimeout(safety);
+      if (unsub) unsub();
     };
   }, [loadRestaurant]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
-    if (!supabase) return { error: "Configuration Supabase manquante." };
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const sb = await getSupabase();
+    if (!sb) return { error: "Configuration Supabase manquante." };
+    const { error } = await sb.auth.signInWithPassword({ email, password });
     return { error: error ? translateAuthError(error.message) : null };
   }, []);
 
   const signUp = useCallback(
     async (email: string, password: string, restaurantName: string): Promise<AuthResult> => {
-      if (!supabase) return { error: "Configuration Supabase manquante." };
-      const { error } = await supabase.auth.signUp({
+      const sb = await getSupabase();
+      if (!sb) return { error: "Configuration Supabase manquante." };
+      const { error } = await sb.auth.signUp({
         email,
         password,
         options: {
@@ -184,33 +264,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    const sb = await getSupabase();
+    if (!sb) return;
+    await sb.auth.signOut();
     setRestaurant(null);
+    setProfile(null);
   }, []);
 
   const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
-    if (!supabase) return { error: "Configuration Supabase manquante." };
+    const sb = await getSupabase();
+    if (!sb) return { error: "Configuration Supabase manquante." };
     const redirectTo = `${window.location.origin}/reset-password`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     return { error: error ? translateAuthError(error.message) : null };
   }, []);
 
   const updatePassword = useCallback(async (password: string): Promise<AuthResult> => {
-    if (!supabase) return { error: "Configuration Supabase manquante." };
-    const { error } = await supabase.auth.updateUser({ password });
+    const sb = await getSupabase();
+    if (!sb) return { error: "Configuration Supabase manquante." };
+    const { error } = await sb.auth.updateUser({ password });
     return { error: error ? translateAuthError(error.message) : null };
   }, []);
 
   const refreshRestaurant = useCallback(async () => {
-    await loadRestaurant(user?.id ?? null);
+    const sb = await getSupabase();
+    await loadRestaurant(sb, user?.id ?? null);
   }, [loadRestaurant, user?.id]);
+
+  const actualRole: Role = DEV_OVERRIDE_ROLE || profile?.role || "owner";
+  // Override autorisé uniquement si le rôle réel est developer.
+  const effectiveOverride =
+    actualRole === "developer" ? roleOverrideState : null;
+  const role: Role = effectiveOverride ?? actualRole;
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       session,
       restaurant,
+      profile,
+      role,
+      actualRole,
+      roleOverride: effectiveOverride,
+      setRoleOverride,
       loading,
       signIn,
       signUp,
@@ -219,7 +315,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword,
       refreshRestaurant,
     }),
-    [user, session, restaurant, loading, signIn, signUp, signOut, resetPassword, updatePassword, refreshRestaurant]
+    [
+      user,
+      session,
+      restaurant,
+      profile,
+      role,
+      actualRole,
+      effectiveOverride,
+      setRoleOverride,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      resetPassword,
+      updatePassword,
+      refreshRestaurant,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

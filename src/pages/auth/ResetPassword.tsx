@@ -55,7 +55,7 @@ export default function ResetPassword() {
       return;
     }
     setInfo("Mot de passe mis à jour. Redirection…");
-    setTimeout(() => navigate("/", { replace: true }), 1200);
+    setTimeout(() => navigate("/dashboard", { replace: true }), 1200);
   };
 
   return (
