@@ -20,12 +20,11 @@ function todayIso(): string {
 
 async function fetchCount(
   table: string,
-  filters: (q: ReturnType<NonNullable<typeof supabase>["from"]>) => unknown
+  filters: (q: any) => any
 ): Promise<number> {
   if (!supabase) return 0;
   const base = supabase.from(table).select("*", { count: "exact", head: true });
-  const query = filters(base) as typeof base;
-  const { count, error } = await query;
+  const { count, error } = await filters(base);
   if (error) return 0;
   return count ?? 0;
 }
