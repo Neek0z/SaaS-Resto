@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   CalendarCheck,
   Check,
+  ChevronDown,
   Copy,
   Download,
   ExternalLink,
@@ -286,6 +287,7 @@ function TablesSection({
   const [open, setOpen] = useState(false);
   const [zipping, setZipping] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const numbers = useMemo(() => tables.map((t) => t.number), [tables]);
 
@@ -319,92 +321,114 @@ function TablesSection({
   return (
     <>
       <Card className="mb-5">
-        <CardHeader>
-          <CardTitle>
-            <span className="inline-flex items-center gap-2">
-              <span className="inline-grid place-items-center w-[20px] h-[20px] rounded-md bg-bg-3 text-ink-2">
-                <QrCodeIcon size={14} />
-              </span>
-              QR par table
-              <span className="text-ember-soft">· {tables.length}</span>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full flex items-center justify-between gap-3 text-left"
+          aria-expanded={expanded}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-grid place-items-center w-[20px] h-[20px] rounded-md bg-bg-3 text-ink-2 shrink-0">
+              <QrCodeIcon size={14} />
             </span>
-          </CardTitle>
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="btn-ghost inline-flex items-center gap-2"
-              onClick={() => setOpen(true)}
-              type="button"
-            >
-              <Plus size={13} />
-              Ajouter une table
-            </button>
-            <button
-              className="btn-primary inline-flex items-center gap-2"
-              onClick={() => void downloadAll()}
-              disabled={tables.length === 0 || zipping}
-              type="button"
-            >
-              <Package size={13} />
-              {zipping ? "Génération…" : "Tout télécharger (ZIP)"}
-            </button>
+            <div className="min-w-0">
+              <div className="display text-[15px] font-medium text-ink-1 inline-flex items-center gap-2">
+                Avancé · QR par table
+                <span className="chip-uppercase !text-[9.5px] px-[5px] py-[1px] rounded bg-bg-3 text-ink-3 border border-line">
+                  À venir
+                </span>
+              </div>
+              <div className="text-[11.5px] text-ink-3 mt-[2px] truncate">
+                Pour la commande à table (en préparation). {tables.length} table{tables.length > 1 ? "s" : ""} configurée{tables.length > 1 ? "s" : ""}.
+              </div>
+            </div>
           </div>
-        </CardHeader>
+          <ChevronDown
+            size={16}
+            className="text-ink-3 transition-transform shrink-0"
+            style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </button>
 
-        <div className="text-[11.5px] text-ink-3 mb-3">
-          Chaque QR table renvoie vers le même hub mais avec le numéro de table déjà sélectionné —
-          pratique pour la commande à table et la résa sur place.
-        </div>
-
-        {zipError && (
-          <div className="mb-3 text-[12px] text-danger">{zipError}</div>
-        )}
-
-        {tables.length === 0 ? (
-          <div className="py-12 text-center text-ink-4 text-[13px] italic">
-            Aucune table.<br />
-            Ajoutez votre première table pour générer un QR code dédié.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {tables.map((t) => {
-              const url = publicHubUrl(slug, t.number);
-              return (
-                <div
-                  key={t.id}
-                  className="group bg-bg-2 border border-line rounded-[12px] p-3 flex flex-col items-center gap-2 transition-all hover:border-line-2"
+        {expanded && (
+          <div className="mt-4 pt-4 border-t border-line">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="text-[11.5px] text-ink-3">
+                Chaque QR table renvoie vers le même hub avec le numéro de table déjà sélectionné.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="btn-ghost inline-flex items-center gap-2"
+                  onClick={() => setOpen(true)}
+                  type="button"
                 >
-                  <QRPreview url={url} size={128} options={options} />
-                  <div className="text-center w-full">
-                    <div className="text-[13px] font-semibold text-ink-1 leading-tight">
-                      Table {t.number}
-                    </div>
-                    <div className="text-[10.5px] mono text-ink-4 mt-[2px]">
-                      {t.capacity} cv · {ZONE_LABEL[t.zone]}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <button
-                      className="icon-btn w-[26px] h-[26px]"
-                      onClick={() =>
-                        void downloadPNG(url, `table-${t.number}.png`, 512, options)
-                      }
-                      title="Télécharger PNG"
-                      type="button"
+                  <Plus size={13} />
+                  Ajouter une table
+                </button>
+                <button
+                  className="btn-primary inline-flex items-center gap-2"
+                  onClick={() => void downloadAll()}
+                  disabled={tables.length === 0 || zipping}
+                  type="button"
+                >
+                  <Package size={13} />
+                  {zipping ? "Génération…" : "Tout télécharger (ZIP)"}
+                </button>
+              </div>
+            </div>
+
+            {zipError && (
+              <div className="mb-3 text-[12px] text-danger">{zipError}</div>
+            )}
+
+            {tables.length === 0 ? (
+              <div className="py-12 text-center text-ink-4 text-[13px] italic">
+                Aucune table.<br />
+                Ajoutez votre première table pour générer un QR code dédié.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {tables.map((t) => {
+                  const url = publicHubUrl(slug, t.number);
+                  return (
+                    <div
+                      key={t.id}
+                      className="group bg-bg-2 border border-line rounded-[12px] p-3 flex flex-col items-center gap-2 transition-all hover:border-line-2"
                     >
-                      <Download size={12} />
-                    </button>
-                    <button
-                      className="icon-btn w-[26px] h-[26px] hover:text-danger"
-                      onClick={() => removeTable(t.id)}
-                      title="Supprimer"
-                      type="button"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                      <QRPreview url={url} size={128} options={options} />
+                      <div className="text-center w-full">
+                        <div className="text-[13px] font-semibold text-ink-1 leading-tight">
+                          Table {t.number}
+                        </div>
+                        <div className="text-[10.5px] mono text-ink-4 mt-[2px]">
+                          {t.capacity} cv · {ZONE_LABEL[t.zone]}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <button
+                          className="icon-btn w-[26px] h-[26px]"
+                          onClick={() =>
+                            void downloadPNG(url, `table-${t.number}.png`, 512, options)
+                          }
+                          title="Télécharger PNG"
+                          type="button"
+                        >
+                          <Download size={12} />
+                        </button>
+                        <button
+                          className="icon-btn w-[26px] h-[26px] hover:text-danger"
+                          onClick={() => removeTable(t.id)}
+                          title="Supprimer"
+                          type="button"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </Card>

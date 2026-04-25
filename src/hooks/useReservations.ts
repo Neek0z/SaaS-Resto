@@ -75,8 +75,12 @@ export function useReservations(initialDate?: string): UseReservations {
   useEffect(() => {
     mounted.current = true;
     void load();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 30_000);
     return () => {
       mounted.current = false;
+      window.clearInterval(id);
     };
   }, [load]);
 

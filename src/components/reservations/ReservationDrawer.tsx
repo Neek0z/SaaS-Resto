@@ -31,25 +31,44 @@ export function ReservationDrawer({
       }
       footer={
         resa ? (
-          <div className="flex gap-2">
-            <button
-              className="btn-ghost flex-1 inline-flex items-center justify-center gap-2 text-danger hover:text-danger"
-              onClick={() => onDelete?.(resa.id)}
-            >
-              <Trash2 size={13} />
-              Supprimer
-            </button>
-            <a
-              className={cn(
-                "btn-primary flex-1 inline-flex items-center justify-center gap-2",
-                !resa.phone && "opacity-50 pointer-events-none"
-              )}
-              href={resa.phone ? `tel:${resa.phone}` : undefined}
-            >
-              <Phone size={13} />
-              Appeler
-            </a>
-          </div>
+          resa.status === "pending" ? (
+            <div className="flex gap-2">
+              <button
+                className="btn-ghost flex-1 inline-flex items-center justify-center gap-2 text-danger hover:text-danger"
+                onClick={() => onDelete?.(resa.id)}
+              >
+                <XCircle size={13} />
+                Refuser
+              </button>
+              <button
+                className="btn-primary flex-1 inline-flex items-center justify-center gap-2"
+                onClick={() => onStatusChange?.(resa.id, "confirmed")}
+              >
+                <CheckCircle2 size={13} />
+                Accepter
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                className="btn-ghost flex-1 inline-flex items-center justify-center gap-2 text-danger hover:text-danger"
+                onClick={() => onDelete?.(resa.id)}
+              >
+                <Trash2 size={13} />
+                Supprimer
+              </button>
+              <a
+                className={cn(
+                  "btn-primary flex-1 inline-flex items-center justify-center gap-2",
+                  !resa.phone && "opacity-50 pointer-events-none"
+                )}
+                href={resa.phone ? `tel:${resa.phone}` : undefined}
+              >
+                <Phone size={13} />
+                Appeler
+              </a>
+            </div>
+          )
         ) : undefined
       }
     >

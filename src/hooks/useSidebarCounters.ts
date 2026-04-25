@@ -4,13 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export type SidebarCounters = {
   ordersInProgress: number;
-  reservationsToday: number;
+  reservationsPending: number;
   loyaltyMembers: number;
 };
 
 const ZERO: SidebarCounters = {
   ordersInProgress: 0,
-  reservationsToday: 0,
+  reservationsPending: 0,
   loyaltyMembers: 0,
 };
 
@@ -45,19 +45,22 @@ export function useSidebarCounters(intervalMs = 30_000): SidebarCounters {
     }
 
     const load = async () => {
-      const [orders, resas, loyalty] = await Promise.all([
+      const [orders, resasPending, loyalty] = await Promise.all([
         fetchCount("orders", (q) =>
           q.eq("restaurant_id", restaurantId).in("status", ["pending", "preparing"])
         ),
         fetchCount("reservations", (q) =>
-          q.eq("restaurant_id", restaurantId).eq("reservation_date", todayIso())
+          q
+            .eq("restaurant_id", restaurantId)
+            .eq("status", "pending")
+            .gte("reservation_date", todayIso())
         ),
         fetchCount("loyalty_customers", (q) => q.eq("restaurant_id", restaurantId)),
       ]);
       if (!mounted.current) return;
       setCounters({
         ordersInProgress: orders,
-        reservationsToday: resas,
+        reservationsPending: resasPending,
         loyaltyMembers: loyalty,
       });
     };

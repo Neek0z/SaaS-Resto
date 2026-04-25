@@ -59,7 +59,7 @@ export function Sidebar() {
   const counters = useSidebarCounters();
   const badgesByPath: Record<string, string | undefined> = {
     "/commandes": formatBadge(counters.ordersInProgress),
-    "/reservations": formatBadge(counters.reservationsToday),
+    "/reservations": formatBadge(counters.reservationsPending),
     "/fidelite": formatBadge(counters.loyaltyMembers),
   };
   const visibleItems: Item[] = pilotage
