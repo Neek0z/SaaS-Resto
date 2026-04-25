@@ -55,144 +55,93 @@ export const COVERS_BY_SLOT: CoverSlot[] = [
   { t: "22:30", v: 5 },
 ];
 
-export type OrderStatus = "pending" | "preparing" | "served" | "cancelled";
-export type OrderChannel = "salle" | "cc" | "delivery";
-export type Order = {
-  id: string;
-  table: string;
-  covers: number;
-  items: string[];
-  total: number;
-  status: OrderStatus;
-  time: string;
-  channel: OrderChannel;
-  waiter: string;
-  priority: "high" | "normal";
-  pickup?: string;
-};
+export type { OrderStatus, OrderChannel, OrderPriority, Order } from "@/lib/order-types";
+import type { Order as _Order, OrderStatus as _OS, OrderChannel as _OC } from "@/lib/order-types";
 
-export const ORDERS: Order[] = [
-  {
-    id: "T-12",
-    table: "Table 12",
-    covers: 4,
-    items: ["Tartare de bœuf", "Sole meunière", "Côte de porc", "Salade César"],
-    total: 168,
-    status: "preparing",
-    time: "il y a 4 min",
-    channel: "salle",
-    waiter: "Léa",
-    priority: "high",
-  },
-  {
-    id: "T-07",
-    table: "Table 7",
-    covers: 2,
-    items: ["Velouté de panais", "Risotto champignons"],
-    total: 58,
-    status: "pending",
-    time: "il y a 1 min",
-    channel: "salle",
-    waiter: "Karim",
-    priority: "normal",
-  },
-  {
-    id: "CC-284",
-    table: "Click & Collect",
-    covers: 1,
-    items: ["Menu du jour ×2", "Tarte citron"],
-    total: 39,
-    status: "preparing",
-    time: "il y a 8 min",
-    channel: "cc",
-    waiter: "—",
-    priority: "normal",
-    pickup: "20:45",
-  },
-  {
-    id: "T-03",
-    table: "Table 3",
-    covers: 3,
-    items: ["Entrecôte ×2", "Poulet rôti", "Crème brûlée"],
-    total: 127,
-    status: "served",
-    time: "il y a 2 min",
-    channel: "salle",
-    waiter: "Léa",
-    priority: "normal",
-  },
-  {
-    id: "LV-912",
-    table: "Livraison · Deliveroo",
-    covers: 1,
-    items: ["Burger Sévère", "Frites maison"],
-    total: 24,
-    status: "pending",
-    time: "il y a 30 sec",
-    channel: "delivery",
-    waiter: "—",
-    priority: "high",
-  },
-  {
-    id: "T-15",
-    table: "Table 15",
-    covers: 2,
-    items: ["Plateau fruits de mer"],
-    total: 89,
-    status: "preparing",
-    time: "il y a 12 min",
-    channel: "salle",
-    waiter: "Ines",
-    priority: "normal",
-  },
-  {
-    id: "T-09",
-    table: "Table 9",
-    covers: 6,
-    items: ["Menu dégustation ×6"],
-    total: 468,
-    status: "preparing",
-    time: "il y a 18 min",
-    channel: "salle",
-    waiter: "Karim",
-    priority: "high",
-  },
-  {
-    id: "T-02",
-    table: "Table 2",
-    covers: 2,
-    items: ["Magret de canard", "Soupe de poisson"],
-    total: 72,
-    status: "cancelled",
-    time: "il y a 6 min",
-    channel: "salle",
-    waiter: "Léa",
-    priority: "normal",
-  },
+const _stubOrder = (
+  i: number,
+  displayId: string,
+  table: string,
+  covers: number,
+  items: string[],
+  total: number,
+  status: _OS,
+  channel: _OC,
+  waiter: string,
+  priority: "high" | "normal",
+  pickup = ""
+): _Order => ({
+  id: `mock-order-${i}`,
+  restaurantId: "mock",
+  displayId,
+  table,
+  covers,
+  items,
+  total,
+  status,
+  channel,
+  waiter,
+  priority,
+  pickup,
+  note: "",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+export const ORDERS: _Order[] = [
+  _stubOrder(1, "T-12", "Table 12", 4, ["Tartare de bœuf", "Sole meunière", "Côte de porc", "Salade César"], 168, "preparing", "salle", "Léa", "high"),
+  _stubOrder(2, "T-07", "Table 7", 2, ["Velouté de panais", "Risotto champignons"], 58, "pending", "salle", "Karim", "normal"),
+  _stubOrder(3, "CC-284", "Click & Collect", 1, ["Menu du jour ×2", "Tarte citron"], 39, "preparing", "cc", "—", "normal", "20:45"),
+  _stubOrder(4, "T-03", "Table 3", 3, ["Entrecôte ×2", "Poulet rôti", "Crème brûlée"], 127, "served", "salle", "Léa", "normal"),
+  _stubOrder(5, "LV-912", "Livraison · Deliveroo", 1, ["Burger Sévère", "Frites maison"], 24, "pending", "delivery", "—", "high"),
+  _stubOrder(6, "T-15", "Table 15", 2, ["Plateau fruits de mer"], 89, "preparing", "salle", "Ines", "normal"),
+  _stubOrder(7, "T-09", "Table 9", 6, ["Menu dégustation ×6"], 468, "preparing", "salle", "Karim", "high"),
+  _stubOrder(8, "T-02", "Table 2", 2, ["Magret de canard", "Soupe de poisson"], 72, "cancelled", "salle", "Léa", "normal"),
 ];
 
-export type ResaStatus = "seated" | "confirmed" | "noshow";
-export type Reservation = {
-  time: string;
-  name: string;
-  covers: number;
-  table: string;
-  status: ResaStatus;
-  note: string;
-};
+export type { ResaStatus, Reservation } from "@/lib/reservation-types";
+import type { Reservation as _Reservation } from "@/lib/reservation-types";
 
-export const RESERVATIONS: Reservation[] = [
-  { time: "19:00", name: "Mme Laurent", covers: 2, table: "T4", status: "seated", note: "Anniversaire" },
-  { time: "19:15", name: "M. Alvarez", covers: 4, table: "T12", status: "seated", note: "" },
-  { time: "19:30", name: "Famille Cohen", covers: 5, table: "T9", status: "seated", note: "1 enfant" },
-  { time: "19:45", name: "M. Nakamura", covers: 2, table: "T7", status: "confirmed", note: "Allergie arachide" },
-  { time: "20:00", name: "Mme Dubois", covers: 3, table: "T15", status: "confirmed", note: "Végétarien" },
-  { time: "20:00", name: "Groupe Renault", covers: 8, table: "T20", status: "confirmed", note: "Repas d'affaires" },
-  { time: "20:15", name: "M. Bianchi", covers: 2, table: "T5", status: "confirmed", note: "" },
-  { time: "20:30", name: "Mme Okafor", covers: 4, table: "T18", status: "confirmed", note: "Proche fenêtre" },
-  { time: "20:45", name: "M. Traoré", covers: 2, table: "T3", status: "confirmed", note: "" },
-  { time: "21:00", name: "Mme Weiss", covers: 3, table: "T11", status: "confirmed", note: "" },
-  { time: "21:15", name: "M. Peretti", covers: 2, table: "T6", status: "noshow", note: "No-show hier" },
+const _today = new Date().toISOString().slice(0, 10);
+const _now = new Date().toISOString();
+const _stubResa = (
+  i: number,
+  t: string,
+  n: string,
+  c: number,
+  tb: string,
+  s: _Reservation["status"],
+  note: string
+): _Reservation => ({
+  id: `mock-${i}`,
+  restaurantId: "mock",
+  date: _today,
+  time: t,
+  name: n,
+  covers: c,
+  table: tb,
+  status: s,
+  note,
+  phone: "",
+  email: "",
+  durationMinutes: 90,
+  source: "manual",
+  createdAt: _now,
+  updatedAt: _now,
+});
+
+export const RESERVATIONS: _Reservation[] = [
+  _stubResa(1, "19:00", "Mme Laurent", 2, "T4", "seated", "Anniversaire"),
+  _stubResa(2, "19:15", "M. Alvarez", 4, "T12", "seated", ""),
+  _stubResa(3, "19:30", "Famille Cohen", 5, "T9", "seated", "1 enfant"),
+  _stubResa(4, "19:45", "M. Nakamura", 2, "T7", "confirmed", "Allergie arachide"),
+  _stubResa(5, "20:00", "Mme Dubois", 3, "T15", "confirmed", "Végétarien"),
+  _stubResa(6, "20:00", "Groupe Renault", 8, "T20", "confirmed", "Repas d'affaires"),
+  _stubResa(7, "20:15", "M. Bianchi", 2, "T5", "confirmed", ""),
+  _stubResa(8, "20:30", "Mme Okafor", 4, "T18", "confirmed", "Proche fenêtre"),
+  _stubResa(9, "20:45", "M. Traoré", 2, "T3", "confirmed", ""),
+  _stubResa(10, "21:00", "Mme Weiss", 3, "T11", "confirmed", ""),
+  _stubResa(11, "21:15", "M. Peretti", 2, "T6", "noshow", "No-show hier"),
 ];
 
 export type StockLevel = "ok" | "low" | "out";

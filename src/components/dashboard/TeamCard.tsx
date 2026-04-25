@@ -1,10 +1,12 @@
-import { TEAM } from "@/lib/mock-data";
+import { useTeam } from "@/hooks/useTeam";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeamChip } from "@/components/team/TeamChip";
 import { CardLink } from "./CardLink";
 
 export function TeamCard() {
-  const counts = TEAM.reduce(
+  const { team, loading, error } = useTeam();
+
+  const counts = team.reduce(
     (acc, m) => ({ ...acc, [m.status]: (acc[m.status] ?? 0) + 1 }),
     {} as Record<string, number>
   );
@@ -22,11 +24,21 @@ export function TeamCard() {
         </div>
       </CardHeader>
 
-      <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
-        {TEAM.map((m) => (
-          <TeamChip key={m.name} m={m} />
-        ))}
-      </div>
+      {error ? (
+        <div className="py-10 text-center text-[12px] text-danger">{error}</div>
+      ) : loading && team.length === 0 ? (
+        <div className="py-10 text-center text-[12px] text-ink-3">Chargement…</div>
+      ) : team.length === 0 ? (
+        <div className="py-10 text-center text-[12px] text-ink-3">
+          Aucun membre planifié.
+        </div>
+      ) : (
+        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+          {team.map((m) => (
+            <TeamChip key={m.id} m={m} />
+          ))}
+        </div>
+      )}
       <CardLink to="/equipe" label="Planning complet" />
     </Card>
   );

@@ -1,17 +1,24 @@
-import { Clock, Users, MapPin, CheckCircle2, Flame, XCircle, Printer, Receipt } from "lucide-react";
-import type { Order, OrderStatus } from "@/lib/mock-data";
+import { Clock, Users, MapPin, CheckCircle2, Flame, XCircle, Trash2, Receipt } from "lucide-react";
+import type { Order, OrderStatus } from "@/lib/order-types";
 import { Drawer } from "@/components/ui/drawer";
 import { channelLabel, statusLabel } from "./OrderRow";
 import { cn, formatEuros } from "@/lib/utils";
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
 
 export function OrderDrawer({
   order,
   onClose,
   onStatusChange,
+  onDelete,
 }: {
   order: Order | null;
   onClose: () => void;
   onStatusChange?: (id: string, status: OrderStatus) => void;
+  onDelete?: (id: string) => void | Promise<void>;
 }) {
   const open = order !== null;
 
@@ -26,16 +33,19 @@ export function OrderDrawer({
       subtitle={
         order ? (
           <span className="mono">
-            {order.id} · {channelLabel(order.channel)} · {order.time}
+            {order.displayId} · {channelLabel(order.channel)} · {formatTime(order.createdAt)}
           </span>
         ) : undefined
       }
       footer={
         order ? (
           <div className="flex gap-2">
-            <button className="btn-ghost flex-1 inline-flex items-center justify-center gap-2">
-              <Printer size={13} />
-              Imprimer
+            <button
+              className="btn-ghost flex-1 inline-flex items-center justify-center gap-2 text-danger hover:text-danger"
+              onClick={() => onDelete?.(order.id)}
+            >
+              <Trash2 size={13} />
+              Supprimer
             </button>
             <button className="btn-primary flex-1 inline-flex items-center justify-center gap-2">
               <Receipt size={13} />
@@ -47,14 +57,12 @@ export function OrderDrawer({
     >
       {order && (
         <div className="flex flex-col gap-4">
-          {/* Meta */}
           <div className="grid grid-cols-3 gap-2">
             <MetaTile icon={Users} label="Couverts" value={`${order.covers}`} />
-            <MetaTile icon={MapPin} label="Serveur" value={order.waiter} />
-            <MetaTile icon={Clock} label="Depuis" value={order.time} />
+            <MetaTile icon={MapPin} label="Serveur" value={order.waiter || "—"} />
+            <MetaTile icon={Clock} label="Reçue" value={formatTime(order.createdAt)} />
           </div>
 
-          {/* Status + actions */}
           <div className="p-3 bg-bg-2 rounded-[10px] border border-line">
             <div className="flex items-center justify-between mb-3">
               <div className="chip-uppercase">Statut</div>
@@ -92,7 +100,6 @@ export function OrderDrawer({
             </div>
           </div>
 
-          {/* Items */}
           <div>
             <div className="chip-uppercase mb-2">Articles</div>
             <div className="flex flex-col">
@@ -103,14 +110,20 @@ export function OrderDrawer({
                 >
                   <div className="text-[13px] text-ink-1">{item}</div>
                   <div className="mono text-[11.5px] text-ink-3">
-                    {formatEuros(Math.round(order.total / order.items.length))} €
+                    {formatEuros(Math.round((order.total / order.items.length) * 100) / 100)} €
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Total */}
+          {order.note && (
+            <div className="p-3 rounded-[10px] border border-amber/30 bg-amber/5 text-[13px] text-ink-1">
+              <div className="chip-uppercase !text-amber mb-1">Note</div>
+              {order.note}
+            </div>
+          )}
+
           <div className="p-3 bg-bg-2 rounded-[10px] border border-line">
             <div className="flex justify-between text-[12px] text-ink-3 mb-1">
               <span>Sous-total HT</span>
@@ -118,7 +131,7 @@ export function OrderDrawer({
             </div>
             <div className="flex justify-between text-[12px] text-ink-3 mb-2">
               <span>TVA 10%</span>
-              <span className="mono">{formatEuros(Math.round(tva))} €</span>
+              <span className="mono">{formatEuros(Math.round(tva * 100) / 100)} €</span>
             </div>
             <div className="flex justify-between items-baseline border-t border-line pt-2">
               <span className="chip-uppercase">Total TTC</span>

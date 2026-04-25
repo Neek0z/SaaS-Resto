@@ -23,6 +23,26 @@ function readRoleOverride(): Role | null {
   return ROLE_ORDER.includes(raw as Role) ? (raw as Role) : null;
 }
 
+export type DaySchedule = {
+  open: boolean;
+  lunch: { start: string; end: string } | null;
+  dinner: { start: string; end: string } | null;
+};
+
+export type WeekdayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export type WeeklyHours = Record<WeekdayKey, DaySchedule>;
+
+export type PaymentSettings = {
+  card: boolean;
+  cash: boolean;
+  ticketResto: boolean;
+  walletPay: boolean;
+  amex: boolean;
+  serviceRate: number;
+  vatRate: number;
+};
+
 export type RestaurantProfile = {
   id: string;
   name: string;
@@ -31,7 +51,98 @@ export type RestaurantProfile = {
   rolePermissions: PermissionOverrides;
   slug: string | null;
   logoUrl: string | null;
+  businessType: string | null;
+  addressLine: string | null;
+  addressZip: string | null;
+  addressCity: string | null;
+  phone: string | null;
+  contactEmail: string | null;
+  siret: string | null;
+  vatNumber: string | null;
+  description: string | null;
+  hours: WeeklyHours;
+  payment: PaymentSettings;
 };
+
+export const WEEKDAYS: { key: WeekdayKey; label: string }[] = [
+  { key: "mon", label: "Lundi" },
+  { key: "tue", label: "Mardi" },
+  { key: "wed", label: "Mercredi" },
+  { key: "thu", label: "Jeudi" },
+  { key: "fri", label: "Vendredi" },
+  { key: "sat", label: "Samedi" },
+  { key: "sun", label: "Dimanche" },
+];
+
+const DEFAULT_DAY: DaySchedule = {
+  open: true,
+  lunch: { start: "12:00", end: "14:30" },
+  dinner: { start: "19:00", end: "23:00" },
+};
+
+export function defaultHours(): WeeklyHours {
+  return WEEKDAYS.reduce((acc, { key }) => {
+    acc[key] = { ...DEFAULT_DAY, lunch: { ...DEFAULT_DAY.lunch! }, dinner: { ...DEFAULT_DAY.dinner! } };
+    return acc;
+  }, {} as WeeklyHours);
+}
+
+export const DEFAULT_PAYMENT: PaymentSettings = {
+  card: true,
+  cash: true,
+  ticketResto: true,
+  walletPay: false,
+  amex: false,
+  serviceRate: 12,
+  vatRate: 10,
+};
+
+function parseHours(raw: unknown): WeeklyHours {
+  const base = defaultHours();
+  if (!raw || typeof raw !== "object") return base;
+  const obj = raw as Record<string, unknown>;
+  for (const { key } of WEEKDAYS) {
+    const v = obj[key];
+    if (!v || typeof v !== "object") continue;
+    const d = v as Record<string, unknown>;
+    base[key] = {
+      open: typeof d.open === "boolean" ? d.open : base[key].open,
+      lunch:
+        d.lunch === null
+          ? null
+          : isSlot(d.lunch)
+          ? { start: String(d.lunch.start), end: String(d.lunch.end) }
+          : base[key].lunch,
+      dinner:
+        d.dinner === null
+          ? null
+          : isSlot(d.dinner)
+          ? { start: String(d.dinner.start), end: String(d.dinner.end) }
+          : base[key].dinner,
+    };
+  }
+  return base;
+}
+
+function isSlot(v: unknown): v is { start: string; end: string } {
+  return typeof v === "object" && v !== null && "start" in v && "end" in v;
+}
+
+function parsePayment(raw: unknown): PaymentSettings {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_PAYMENT };
+  const r = raw as Record<string, unknown>;
+  const num = (v: unknown, d: number) => (typeof v === "number" && isFinite(v) ? v : d);
+  const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
+  return {
+    card: bool(r.card, DEFAULT_PAYMENT.card),
+    cash: bool(r.cash, DEFAULT_PAYMENT.cash),
+    ticketResto: bool(r.ticket_resto ?? r.ticketResto, DEFAULT_PAYMENT.ticketResto),
+    walletPay: bool(r.wallet_pay ?? r.walletPay, DEFAULT_PAYMENT.walletPay),
+    amex: bool(r.amex, DEFAULT_PAYMENT.amex),
+    serviceRate: num(r.service_rate ?? r.serviceRate, DEFAULT_PAYMENT.serviceRate),
+    vatRate: num(r.vat_rate ?? r.vatRate, DEFAULT_PAYMENT.vatRate),
+  };
+}
 
 export type UserProfile = {
   id: string;
@@ -131,7 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data, error } = await sb
           .from("app_users")
           .select(
-            "id, email, role, restaurant_id, restaurants(id, name, plan, billing_cycle, role_permissions, slug, logo_url)"
+            "id, email, role, restaurant_id, restaurants(id, name, plan, billing_cycle, role_permissions, slug, logo_url, business_type, address_line, address_zip, address_city, phone, contact_email, siret, vat_number, description, hours, payment)"
           )
           .eq("id", uid)
           .maybeSingle();
@@ -163,6 +274,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 role_permissions: PermissionOverrides | null;
                 slug: string | null;
                 logo_url: string | null;
+                business_type: string | null;
+                address_line: string | null;
+                address_zip: string | null;
+                address_city: string | null;
+                phone: string | null;
+                contact_email: string | null;
+                siret: string | null;
+                vat_number: string | null;
+                description: string | null;
+                hours: unknown;
+                payment: unknown;
               }
             | null;
         };
@@ -171,14 +293,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRestaurant(null);
           return;
         }
+        const r = row.restaurants;
         setRestaurant({
-          id: row.restaurants.id,
-          name: row.restaurants.name,
-          plan: row.restaurants.plan,
-          billingCycle: row.restaurants.billing_cycle,
-          rolePermissions: row.restaurants.role_permissions ?? {},
-          slug: row.restaurants.slug ?? null,
-          logoUrl: row.restaurants.logo_url ?? null,
+          id: r.id,
+          name: r.name,
+          plan: r.plan,
+          billingCycle: r.billing_cycle,
+          rolePermissions: r.role_permissions ?? {},
+          slug: r.slug ?? null,
+          logoUrl: r.logo_url ?? null,
+          businessType: r.business_type ?? null,
+          addressLine: r.address_line ?? null,
+          addressZip: r.address_zip ?? null,
+          addressCity: r.address_city ?? null,
+          phone: r.phone ?? null,
+          contactEmail: r.contact_email ?? null,
+          siret: r.siret ?? null,
+          vatNumber: r.vat_number ?? null,
+          description: r.description ?? null,
+          hours: parseHours(r.hours),
+          payment: parsePayment(r.payment),
         });
       } catch (e) {
         if (import.meta.env.DEV) {

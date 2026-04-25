@@ -1,5 +1,17 @@
-import type { Order } from "@/lib/mock-data";
+import type { Order } from "@/lib/order-types";
 import { cn, formatEuros } from "@/lib/utils";
+
+function relativeTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  const now = Date.now();
+  const diff = Math.max(0, Math.round((now - t) / 1000));
+  if (diff < 60) return `il y a ${diff}s`;
+  const min = Math.round(diff / 60);
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h}h`;
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
 
 export function OrderRow({
   order,
@@ -23,7 +35,7 @@ export function OrderRow({
       style={{ gridTemplateColumns: "58px 1fr auto auto" }}
     >
       <div className="mono text-[11px] text-ink-3 bg-bg-2 px-[7px] py-[3px] rounded text-center">
-        {order.id}
+        {order.displayId}
       </div>
 
       <div className="min-w-0">
@@ -50,11 +62,11 @@ export function OrderRow({
         <span className="block display text-[16px] text-ink-1 font-medium mb-[2px]">
           {formatEuros(order.total)} €
         </span>
-        {order.waiter !== "—"
+        {order.waiter && order.waiter !== "—"
           ? `Serveur: ${order.waiter}`
           : order.pickup
           ? `Retrait ${order.pickup}`
-          : order.time}
+          : relativeTime(order.createdAt)}
       </div>
 
       <span className={cn("status-pill", order.status)}>

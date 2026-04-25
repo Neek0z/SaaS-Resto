@@ -216,6 +216,35 @@ export async function fetchRecipients(
 // =============================================================
 // Envoi : invoque l'edge function (serveur uniquement)
 // =============================================================
+async function readEdgeError(error: unknown): Promise<string> {
+  // supabase-js attache la Response brute dans `context` pour FunctionsHttpError.
+  const ctx = (error as { context?: Response | { message?: string } } | null)?.context;
+  if (ctx instanceof Response) {
+    try {
+      const cloned = ctx.clone();
+      const text = await cloned.text();
+      try {
+        const json = JSON.parse(text) as { error?: string; message?: string };
+        const msg = json.error ?? json.message;
+        if (msg) {
+          if (msg.toLowerCase().includes("configuration"))
+            return "Edge function send-campaign : RESEND_API_KEY ou SUPABASE_SERVICE_ROLE_KEY manquant.";
+          return msg;
+        }
+      } catch {
+        if (text) return text;
+      }
+      if (ctx.status === 404) {
+        return "Edge function send-campaign introuvable. Déployez-la avec `supabase functions deploy send-campaign`.";
+      }
+    } catch {
+      /* noop */
+    }
+  }
+  if (error instanceof Error) return error.message;
+  return "Échec de l'envoi.";
+}
+
 export async function sendCampaign(
   campaignId: string,
   restaurantId: string
@@ -224,6 +253,9 @@ export async function sendCampaign(
   const { data, error } = await sb.functions.invoke("send-campaign", {
     body: { campaign_id: campaignId, restaurant_id: restaurantId },
   });
-  if (error) throw error;
+  if (error) {
+    const msg = await readEdgeError(error);
+    throw new Error(msg);
+  }
   return data as { ok: boolean; sent: number; failed: number; total: number };
 }

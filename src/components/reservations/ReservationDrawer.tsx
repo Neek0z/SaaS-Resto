@@ -1,5 +1,5 @@
-import { Clock, Users, MapPin, CheckCircle2, XCircle, Phone, Mail, AlertTriangle } from "lucide-react";
-import type { Reservation, ResaStatus } from "@/lib/mock-data";
+import { Clock, Users, MapPin, CheckCircle2, XCircle, Phone, Mail, AlertTriangle, Trash2 } from "lucide-react";
+import type { Reservation, ResaStatus } from "@/lib/reservation-types";
 import { Drawer } from "@/components/ui/drawer";
 import { statusLabel } from "./ResaRow";
 import { cn } from "@/lib/utils";
@@ -8,13 +8,14 @@ export function ReservationDrawer({
   resa,
   onClose,
   onStatusChange,
+  onDelete,
 }: {
   resa: Reservation | null;
   onClose: () => void;
-  onStatusChange?: (key: string, status: ResaStatus) => void;
+  onStatusChange?: (id: string, status: ResaStatus) => void;
+  onDelete?: (id: string) => void | Promise<void>;
 }) {
   const open = resa !== null;
-  const key = resa ? `${resa.time}-${resa.table}` : "";
 
   return (
     <Drawer
@@ -31,14 +32,23 @@ export function ReservationDrawer({
       footer={
         resa ? (
           <div className="flex gap-2">
-            <button className="btn-ghost flex-1 inline-flex items-center justify-center gap-2">
+            <button
+              className="btn-ghost flex-1 inline-flex items-center justify-center gap-2 text-danger hover:text-danger"
+              onClick={() => onDelete?.(resa.id)}
+            >
+              <Trash2 size={13} />
+              Supprimer
+            </button>
+            <a
+              className={cn(
+                "btn-primary flex-1 inline-flex items-center justify-center gap-2",
+                !resa.phone && "opacity-50 pointer-events-none"
+              )}
+              href={resa.phone ? `tel:${resa.phone}` : undefined}
+            >
               <Phone size={13} />
               Appeler
-            </button>
-            <button className="btn-primary flex-1 inline-flex items-center justify-center gap-2">
-              <Mail size={13} />
-              Rappel SMS
-            </button>
+            </a>
           </div>
         ) : undefined
       }
@@ -73,21 +83,21 @@ export function ReservationDrawer({
                 active={resa.status === "confirmed"}
                 icon={Clock}
                 label="Confirmée"
-                onClick={() => onStatusChange?.(key, "confirmed")}
+                onClick={() => onStatusChange?.(resa.id, "confirmed")}
               />
               <StatusBtn
                 active={resa.status === "seated"}
                 icon={CheckCircle2}
                 tone="ok"
                 label="Installer"
-                onClick={() => onStatusChange?.(key, "seated")}
+                onClick={() => onStatusChange?.(resa.id, "seated")}
               />
               <StatusBtn
                 active={resa.status === "noshow"}
                 icon={XCircle}
                 tone="danger"
                 label="No-show"
-                onClick={() => onStatusChange?.(key, "noshow")}
+                onClick={() => onStatusChange?.(resa.id, "noshow")}
               />
             </div>
           </div>
@@ -105,15 +115,8 @@ export function ReservationDrawer({
           <div>
             <div className="chip-uppercase mb-2">Contact</div>
             <div className="flex flex-col gap-2">
-              <ContactRow icon={Phone} value="+33 6 12 34 56 78" />
-              <ContactRow icon={Mail} value={`${resa.name.toLowerCase().replace(/[^a-z]/g, ".")}@mail.com`} />
-            </div>
-          </div>
-
-          <div>
-            <div className="chip-uppercase mb-2">Historique</div>
-            <div className="text-[12px] text-ink-3 p-3 bg-bg-2 rounded-[10px] border border-line">
-              Client fidèle · 4 passages sur les 6 derniers mois. Dernière visite : il y a 3 semaines.
+              <ContactRow icon={Phone} value={resa.phone || "Non renseigné"} muted={!resa.phone} />
+              <ContactRow icon={Mail} value={resa.email || "Non renseigné"} muted={!resa.email} />
             </div>
           </div>
         </div>
@@ -164,11 +167,16 @@ function StatusBtn({
   );
 }
 
-function ContactRow({ icon: Icon, value }: { icon: typeof Phone; value: string }) {
+function ContactRow({ icon: Icon, value, muted }: { icon: typeof Phone; value: string; muted?: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-[13px] text-ink-2 p-[9px] bg-bg-2 rounded-[8px] border border-line">
+    <div
+      className={cn(
+        "flex items-center gap-2 text-[13px] p-[9px] bg-bg-2 rounded-[8px] border border-line",
+        muted ? "text-ink-4 italic" : "text-ink-2"
+      )}
+    >
       <Icon size={13} className="text-ink-4" />
-      <span className="mono">{value}</span>
+      <span className={muted ? "" : "mono"}>{value}</span>
     </div>
   );
 }

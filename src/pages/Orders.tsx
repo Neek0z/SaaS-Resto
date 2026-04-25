@@ -1,40 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Search } from "lucide-react";
-import { listOrders } from "@/lib/api/orders";
-import type { Order, OrderChannel, OrderStatus } from "@/lib/mock-data";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ClipboardList, RefreshCw, Search } from "lucide-react";
+import { useOrders } from "@/hooks/useOrders";
+import type { OrderChannel, OrderStatus, NewOrder } from "@/lib/order-types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderRow, channelLabel, statusLabel } from "@/components/orders/OrderRow";
 import { OrderDrawer } from "@/components/orders/OrderDrawer";
+import { NewOrderModal } from "@/components/orders/NewOrderModal";
 import { cn, formatEuros } from "@/lib/utils";
 
 type ChannelFilter = "all" | OrderChannel;
 type StatusFilter = "all" | OrderStatus;
 
 export default function Orders() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { orders, loading, error, reload, add, setStatus: setOrderStatus, remove } = useOrders();
   const [channel, setChannel] = useState<ChannelFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
   const selected = orders.find((o) => o.id === selectedId) ?? null;
 
-  const updateStatus = (id: string, newStatus: OrderStatus) => {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o)));
+  const handleStatusChange = (id: string, next: OrderStatus) => {
+    void setOrderStatus(id, next);
   };
 
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      setOrders(await listOrders());
-    } finally {
-      setLoading(false);
-    }
+  const handleCreate = async (input: NewOrder) => {
+    const created = await add(input);
+    if (created) setNewOpen(false);
   };
 
+  const handleDelete = async (id: string) => {
+    await remove(id);
+    setSelectedId(null);
+  };
+
+  const location = useLocation();
+  const navigate = useNavigate();
   useEffect(() => {
-    void refresh();
-  }, []);
+    const state = location.state as { openNew?: boolean } | null;
+    if (state?.openNew) {
+      setNewOpen(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -43,7 +52,7 @@ export default function Orders() {
       if (query) {
         const q = query.toLowerCase();
         if (
-          !o.id.toLowerCase().includes(q) &&
+          !o.displayId.toLowerCase().includes(q) &&
           !o.table.toLowerCase().includes(q) &&
           !o.items.join(" ").toLowerCase().includes(q) &&
           !o.waiter.toLowerCase().includes(q)
@@ -63,13 +72,14 @@ export default function Orders() {
     const revenue = orders
       .filter((o) => o.status !== "cancelled")
       .reduce((sum, o) => sum + o.total, 0);
-    const urgent = orders.filter((o) => o.priority === "high" && o.status !== "served" && o.status !== "cancelled").length;
+    const urgent = orders.filter(
+      (o) => o.priority === "high" && o.status !== "served" && o.status !== "cancelled"
+    ).length;
     return { byStatus, revenue, urgent };
   }, [orders]);
 
   return (
     <>
-      {/* Page header */}
       <div className="flex items-end justify-between mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Salle & cuisine · Temps réel</div>
@@ -77,13 +87,28 @@ export default function Orders() {
             Commandes <em className="not-italic italic text-ember-soft font-normal">en service</em>
           </h2>
         </div>
-        <button className="btn-ghost inline-flex items-center gap-2" onClick={refresh} disabled={loading}>
-          <RefreshCw size={13} className={cn(loading && "animate-spin")} />
-          Actualiser
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-ghost inline-flex items-center gap-2"
+            onClick={() => void reload()}
+            disabled={loading}
+          >
+            <RefreshCw size={13} className={cn(loading && "animate-spin")} />
+            Actualiser
+          </button>
+          <button className="btn-primary inline-flex items-center gap-2" onClick={() => setNewOpen(true)}>
+            <ClipboardList size={13} />
+            Nouvelle commande
+          </button>
+        </div>
       </div>
 
-      {/* Stats strip */}
+      {error && (
+        <div className="mb-4 p-3 rounded-[10px] border border-danger/40 bg-danger/10 text-danger text-[12px]">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-12 gap-4 mb-4">
         <StatTile
           className="col-span-3"
@@ -116,7 +141,6 @@ export default function Orders() {
         />
       </div>
 
-      {/* Filter + search bar */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <FilterGroup
@@ -162,7 +186,6 @@ export default function Orders() {
         </div>
       </Card>
 
-      {/* Orders list */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -179,6 +202,16 @@ export default function Orders() {
 
         {loading ? (
           <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
+        ) : orders.length === 0 ? (
+          <div className="py-16 text-center text-ink-3 text-[13px]">
+            Aucune commande pour ce service.
+            <button
+              className="block mx-auto mt-3 btn-primary"
+              onClick={() => setNewOpen(true)}
+            >
+              <ClipboardList size={13} /> Créer la première
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-ink-3 text-[13px]">
             Aucune commande ne correspond aux filtres.
@@ -195,7 +228,13 @@ export default function Orders() {
       <OrderDrawer
         order={selected}
         onClose={() => setSelectedId(null)}
-        onStatusChange={updateStatus}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+      />
+      <NewOrderModal
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        onCreate={handleCreate}
       />
     </>
   );

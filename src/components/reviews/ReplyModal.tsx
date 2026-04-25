@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
 import { Send, Sparkles } from "lucide-react";
-import type { Review } from "@/lib/mock-data";
+import type { Review } from "@/lib/review-types";
 import { Modal } from "@/components/ui/modal";
 import { Stars } from "./Stars";
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 const TEMPLATES_POSITIVE = [
   "Bonjour {name}, un grand merci pour votre retour chaleureux. Nous sommes ravis d'avoir partagé ce moment avec vous — toute l'équipe vous attend déjà pour votre prochaine visite. Marc Sévère.",
@@ -31,7 +44,7 @@ export function ReplyModal({
   const [text, setText] = useState("");
 
   useEffect(() => {
-    if (review) setText("");
+    if (review) setText(review.replyText ?? "");
   }, [review]);
 
   const templates =
@@ -59,7 +72,7 @@ export function ReplyModal({
       onClose={onClose}
       width={620}
       title="Répondre à l'avis"
-      subtitle={review ? `${review.author} · ${review.source} · ${review.time}` : undefined}
+      subtitle={review ? `${review.author} · ${review.source} · ${formatDate(review.createdAt)}` : undefined}
       footer={
         <div className="flex justify-between items-center gap-2">
           <div className="text-[10.5px] text-ink-4 mono">

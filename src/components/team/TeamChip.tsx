@@ -1,4 +1,4 @@
-import type { TeamMember } from "@/lib/mock-data";
+import type { TeamMember } from "@/lib/team-types";
 import { cn } from "@/lib/utils";
 
 export function TeamChip({ m, showHours = false }: { m: TeamMember; showHours?: boolean }) {

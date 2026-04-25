@@ -1,3 +1,4 @@
+import { DashboardProvider } from "@/hooks/useDashboard";
 import { KpiStrip } from "@/components/dashboard/KpiStrip";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { CoversChart } from "@/components/dashboard/CoversChart";
@@ -11,7 +12,7 @@ import { EventsTodayCard } from "@/components/dashboard/EventsTodayCard";
 
 export default function Dashboard() {
   return (
-    <>
+    <DashboardProvider>
       <KpiStrip />
 
       <div className="grid grid-cols-12 gap-4 mb-4">
@@ -37,6 +38,6 @@ export default function Dashboard() {
         <TeamCard />
         <AlertsCard />
       </div>
-    </>
+    </DashboardProvider>
   );
 }

@@ -1,38 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Search, UserPlus } from "lucide-react";
-import { listTeam } from "@/lib/api/team";
-import type { TeamMember } from "@/lib/mock-data";
+import { useTeam } from "@/hooks/useTeam";
+import { KIND_LABEL, type TeamMember, type TeamMemberKind } from "@/lib/team-types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeamChip } from "@/components/team/TeamChip";
 import { SchedulePlanning } from "@/components/team/SchedulePlanning";
+import { TeamMemberModal } from "@/components/team/TeamMemberModal";
 import { cn } from "@/lib/utils";
 
-type KindFilter = "all" | TeamMember["kind"];
+type KindFilter = "all" | TeamMemberKind;
 
-const KIND_LABELS: Record<KindFilter, string> = {
+const KIND_FILTERS: Record<KindFilter, string> = {
   all: "Tous les postes",
-  service: "Salle",
-  kitchen: "Cuisine",
-  bar: "Bar",
-  late: "En retard",
+  service: KIND_LABEL.service,
+  kitchen: KIND_LABEL.kitchen,
+  bar: KIND_LABEL.bar,
+  late: KIND_LABEL.late,
 };
 
 export default function Team() {
-  const [team, setTeam] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { team, loading, error, add, update, remove } = useTeam();
   const [kind, setKind] = useState<KindFilter>("all");
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        setTeam(await listTeam());
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const [editing, setEditing] = useState<TeamMember | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const stats = useMemo(() => {
     const service = team.filter((m) => m.status === "service").length;
@@ -53,6 +44,12 @@ export default function Team() {
     });
   }, [team, kind, query]);
 
+  const modalOpen = creating || editing !== null;
+  const closeModal = () => {
+    setCreating(false);
+    setEditing(null);
+  };
+
   return (
     <>
       <div className="flex items-end justify-between mb-5 pt-2">
@@ -62,13 +59,21 @@ export default function Team() {
             Équipe <em className="not-italic italic text-ember-soft font-normal">& planning</em>
           </h2>
         </div>
-        <button className="btn-primary inline-flex items-center gap-2">
+        <button
+          className="btn-primary inline-flex items-center gap-2"
+          onClick={() => setCreating(true)}
+        >
           <UserPlus size={14} />
           Ajouter un membre
         </button>
       </div>
 
-      {/* Stats */}
+      {error && (
+        <Card className="mb-4 border-danger/40">
+          <div className="text-[12px] text-danger">{error}</div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-12 gap-4 mb-4">
         <StatTile className="col-span-3" label="En poste" value={stats.service} hint="Actuellement sur le service" tone="ok" />
         <StatTile className="col-span-3" label="En pause" value={stats.onBreak} hint="Pauses en cours" tone="amber" />
@@ -77,18 +82,17 @@ export default function Team() {
           className="col-span-3"
           label="Volume"
           value={`${stats.totalHours.toFixed(0)}h`}
-          hint={`${stats.total} membres planifiés`}
+          hint={`${stats.total} membre${stats.total > 1 ? "s" : ""} planifié${stats.total > 1 ? "s" : ""}`}
           tone="cream"
         />
       </div>
 
-      {/* Filters */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="segmented">
-            {(Object.keys(KIND_LABELS) as KindFilter[]).map((k) => (
+            {(Object.keys(KIND_FILTERS) as KindFilter[]).map((k) => (
               <button key={k} className={cn(kind === k && "active")} onClick={() => setKind(k)}>
-                {KIND_LABELS[k]}
+                {KIND_FILTERS[k]}
               </button>
             ))}
           </div>
@@ -110,23 +114,24 @@ export default function Team() {
         </div>
       </Card>
 
-      {/* Team grid */}
       <Card className="mb-4">
         <CardHeader>
           <CardTitle>
             {filtered.length} {filtered.length > 1 ? "membres" : "membre"} ·{" "}
-            <span className="text-ember-soft">{KIND_LABELS[kind].toLowerCase()}</span>
+            <span className="text-ember-soft">{KIND_FILTERS[kind].toLowerCase()}</span>
           </CardTitle>
           <span className="text-[11px] text-ink-4 mono uppercase tracking-[0.08em]">
-            Mise à jour il y a 2 min
+            {team.length > 0 ? "Cliquez un membre pour modifier" : ""}
           </span>
         </CardHeader>
 
-        {loading ? (
+        {loading && team.length === 0 ? (
           <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-ink-3 text-[13px]">
-            Aucun membre ne correspond aux filtres.
+            {team.length === 0
+              ? "Aucun membre. Ajoutez votre première équipe pour commencer."
+              : "Aucun membre ne correspond aux filtres."}
           </div>
         ) : (
           <div
@@ -134,13 +139,19 @@ export default function Team() {
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
           >
             {filtered.map((m) => (
-              <TeamChip key={m.name} m={m} showHours />
+              <button
+                key={m.id}
+                onClick={() => setEditing(m)}
+                className="text-left"
+                aria-label={`Modifier ${m.name}`}
+              >
+                <TeamChip m={m} showHours />
+              </button>
             ))}
           </div>
         )}
       </Card>
 
-      {/* Schedule Gantt */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -151,12 +162,25 @@ export default function Team() {
           </span>
         </CardHeader>
 
-        {loading ? (
+        {loading && team.length === 0 ? (
           <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center text-ink-3 text-[13px]">
+            Aucun créneau à afficher.
+          </div>
         ) : (
           <SchedulePlanning team={filtered} />
         )}
       </Card>
+
+      <TeamMemberModal
+        open={modalOpen}
+        member={editing}
+        onClose={closeModal}
+        onCreate={add}
+        onUpdate={update}
+        onDelete={remove}
+      />
     </>
   );
 }

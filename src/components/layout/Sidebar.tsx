@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { usePermission } from "@/hooks/usePermission";
 import { useRole } from "@/hooks/useRole";
 import { useSidebar, SIDEBAR_WIDTHS } from "@/lib/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { ROLE_LABELS } from "@/config/roles";
 
 type Item = {
   to: string;
@@ -28,14 +30,14 @@ type Item = {
 
 const pilotage: Item[] = [
   { to: "/dashboard", resource: "nav.dashboard", label: "Tableau de bord", icon: <BarChart3 size={17} /> },
-  { to: "/commandes", resource: "nav.commandes", label: "Commandes", icon: <ClipboardList size={17} />, badge: "12" },
-  { to: "/reservations", resource: "nav.reservations", label: "Réservations", icon: <CalendarDays size={17} />, badge: "11" },
+  { to: "/commandes", resource: "nav.commandes", label: "Commandes", icon: <ClipboardList size={17} /> },
+  { to: "/reservations", resource: "nav.reservations", label: "Réservations", icon: <CalendarDays size={17} /> },
   { to: "/menu", resource: "nav.menu", label: "Menu & stocks", icon: <UtensilsCrossed size={17} /> },
   { to: "/avis", resource: "nav.avis", label: "Avis clients", icon: <Star size={17} /> },
   { to: "/equipe", resource: "nav.equipe", label: "Équipe", icon: <Users size={17} /> },
   { to: "/menu-numerique", resource: "nav.menu-numerique", label: "Menu numérique", icon: <QrCode size={17} /> },
   { to: "/qrcode", resource: "nav.qrcode", label: "QR codes", icon: <QrCode size={17} /> },
-  { to: "/fidelite", resource: "nav.fidelite", label: "Fidélité", icon: <Heart size={17} />, badge: "324" },
+  { to: "/fidelite", resource: "nav.fidelite", label: "Fidélité", icon: <Heart size={17} /> },
   { to: "/evenements", resource: "nav.evenements", label: "Événements", icon: <Sparkles size={17} /> },
   { to: "/clients", resource: "nav.clients", label: "Clients", icon: <Mail size={17} /> },
 ];
@@ -44,10 +46,17 @@ const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 export function Sidebar() {
   const { can } = usePermission();
-  const { isAtLeast } = useRole();
+  const { isAtLeast, role } = useRole();
   const { collapsed, toggle } = useSidebar();
+  const { user, restaurant } = useAuth();
   const visibleItems = pilotage.filter((item) => can(item.resource));
   const showSettings = isAtLeast("manager");
+
+  const displayName = restaurant?.name ?? user?.email ?? "—";
+  const userInitials = (user?.email ?? restaurant?.name ?? "?")
+    .slice(0, 2)
+    .toUpperCase();
+  const roleLabel = ROLE_LABELS[role];
 
   return (
     <aside
@@ -131,7 +140,7 @@ export function Sidebar() {
         )}
         style={{ transition: `padding 280ms ${EASE}` }}
       >
-        <div className="avatar-circle w-8 h-8 text-xs shrink-0">MS</div>
+        <div className="avatar-circle w-8 h-8 text-xs shrink-0">{userInitials}</div>
         <div
           className="min-w-0 flex-1 overflow-hidden whitespace-nowrap"
           style={{
@@ -140,8 +149,8 @@ export function Sidebar() {
             transition: `opacity 200ms ${EASE} ${collapsed ? "0ms" : "120ms"}`,
           }}
         >
-          <div className="text-[12.5px] font-semibold truncate">Marc Sévère</div>
-          <div className="text-[10.5px] text-ink-3">Gérant · Paris 11ᵉ</div>
+          <div className="text-[12.5px] font-semibold truncate">{displayName}</div>
+          <div className="text-[10.5px] text-ink-3 truncate">{roleLabel}</div>
         </div>
       </div>
     </aside>

@@ -1,8 +1,8 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { RESTO } from "@/lib/mock-data";
 import { useSidebar, SIDEBAR_WIDTHS } from "@/lib/sidebar";
+import { formatLongDateFr } from "@/lib/utils";
 
 export function AppShell() {
   const { collapsed } = useSidebar();
@@ -20,7 +20,7 @@ export function AppShell() {
         <Topbar />
         <Outlet />
         <div className="mono text-center text-[11px] text-ink-4 py-6 mt-5 border-t border-line">
-          Sévère. · SaaS Restauration · v2.4 — {RESTO.date}
+          Sévère. · SaaS Restauration · v2.4 — {formatLongDateFr()}
         </div>
       </main>
     </div>

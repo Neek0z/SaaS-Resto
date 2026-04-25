@@ -31,7 +31,15 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@/lib/supabase-env";
 import { supabase } from "@/lib/supabase";
-import { RESTO } from "@/lib/mock-data";
+import {
+  WEEKDAYS,
+  defaultHours,
+  DEFAULT_PAYMENT,
+  type DaySchedule,
+  type PaymentSettings,
+  type WeekdayKey,
+  type WeeklyHours,
+} from "@/contexts/AuthContext";
 import { useTheme, type Theme } from "@/lib/theme";
 import { PlanGate } from "@/components/PlanGate";
 import { RoleGate } from "@/components/RoleGate";
@@ -157,10 +165,6 @@ export default function Settings() {
             <ExternalLink size={13} />
             Voir la landing
           </a>
-          <button className="btn-primary inline-flex items-center gap-2">
-            <Save size={13} />
-            Enregistrer
-          </button>
         </div>
       </div>
 
@@ -526,105 +530,630 @@ function RestoIdentitySection() {
   );
 }
 
+type ContactDraft = {
+  businessType: string;
+  addressLine: string;
+  addressZip: string;
+  addressCity: string;
+  phone: string;
+  contactEmail: string;
+  siret: string;
+  vatNumber: string;
+  description: string;
+};
+
+function emptyContact(): ContactDraft {
+  return {
+    businessType: "",
+    addressLine: "",
+    addressZip: "",
+    addressCity: "",
+    phone: "",
+    contactEmail: "",
+    siret: "",
+    vatNumber: "",
+    description: "",
+  };
+}
+
+function contactFromRestaurant(r: {
+  businessType: string | null;
+  addressLine: string | null;
+  addressZip: string | null;
+  addressCity: string | null;
+  phone: string | null;
+  contactEmail: string | null;
+  siret: string | null;
+  vatNumber: string | null;
+  description: string | null;
+}): ContactDraft {
+  return {
+    businessType: r.businessType ?? "",
+    addressLine: r.addressLine ?? "",
+    addressZip: r.addressZip ?? "",
+    addressCity: r.addressCity ?? "",
+    phone: r.phone ?? "",
+    contactEmail: r.contactEmail ?? "",
+    siret: r.siret ?? "",
+    vatNumber: r.vatNumber ?? "",
+    description: r.description ?? "",
+  };
+}
+
 function RestoExtraSection() {
+  const { restaurant, refreshRestaurant } = useAuth();
+  const [draft, setDraft] = useState<ContactDraft>(() =>
+    restaurant ? contactFromRestaurant(restaurant) : emptyContact()
+  );
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (restaurant) setDraft(contactFromRestaurant(restaurant));
+  }, [
+    restaurant?.id,
+    restaurant?.businessType,
+    restaurant?.addressLine,
+    restaurant?.addressZip,
+    restaurant?.addressCity,
+    restaurant?.phone,
+    restaurant?.contactEmail,
+    restaurant?.siret,
+    restaurant?.vatNumber,
+    restaurant?.description,
+  ]);
+
+  const dirty = useMemo(() => {
+    if (!restaurant) return false;
+    const c = contactFromRestaurant(restaurant);
+    return (Object.keys(c) as (keyof ContactDraft)[]).some((k) => c[k] !== draft[k]);
+  }, [draft, restaurant]);
+
+  const set = <K extends keyof ContactDraft>(key: K, value: ContactDraft[K]) => {
+    setDraft((d) => ({ ...d, [key]: value }));
+    setSuccess(false);
+    setError(null);
+  };
+
+  const save = async () => {
+    if (!restaurant) return;
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const { updateRestaurant } = await import("@/lib/api/restaurant");
+      await updateRestaurant(restaurant.id, {
+        businessType: draft.businessType.trim() || null,
+        addressLine: draft.addressLine.trim() || null,
+        addressZip: draft.addressZip.trim() || null,
+        addressCity: draft.addressCity.trim() || null,
+        phone: draft.phone.trim() || null,
+        contactEmail: draft.contactEmail.trim() || null,
+        siret: draft.siret.trim() || null,
+        vatNumber: draft.vatNumber.trim() || null,
+        description: draft.description.trim() || null,
+      });
+      await refreshRestaurant();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!restaurant) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Coordonnées</CardTitle>
+        </CardHeader>
+        <div className="text-[12px] text-ink-3 italic">Chargement…</div>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Coordonnées · {RESTO.name}</CardTitle>
+        <CardTitle>Coordonnées</CardTitle>
+        {success && (
+          <span className="text-[11px] text-ok mono inline-flex items-center gap-1">
+            <Check size={12} /> Enregistré
+          </span>
+        )}
       </CardHeader>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Type">
-          <Input defaultValue="Brasserie" />
+          <TextInput
+            value={draft.businessType}
+            onChange={(v) => set("businessType", v)}
+            placeholder="Brasserie, Bistrot, Pizzeria…"
+          />
         </Field>
         <Field label="Adresse">
-          <Input defaultValue="23 rue de la Fontaine au Roi" />
+          <TextInput
+            value={draft.addressLine}
+            onChange={(v) => set("addressLine", v)}
+            placeholder="23 rue de la Fontaine au Roi"
+          />
         </Field>
-        <Field label="Code postal · Ville">
-          <Input defaultValue="75011 Paris" />
+        <Field label="Code postal">
+          <TextInput value={draft.addressZip} onChange={(v) => set("addressZip", v)} placeholder="75011" />
+        </Field>
+        <Field label="Ville">
+          <TextInput value={draft.addressCity} onChange={(v) => set("addressCity", v)} placeholder="Paris" />
         </Field>
         <Field label="Téléphone">
-          <Input defaultValue="+33 1 43 57 12 45" type="tel" />
+          <TextInput
+            value={draft.phone}
+            onChange={(v) => set("phone", v)}
+            type="tel"
+            placeholder="+33 1 43 57 12 45"
+          />
         </Field>
         <Field label="Email de contact">
-          <Input defaultValue="contact@maison-severe.fr" type="email" />
+          <TextInput
+            value={draft.contactEmail}
+            onChange={(v) => set("contactEmail", v)}
+            type="email"
+            placeholder="contact@…"
+          />
         </Field>
         <Field label="SIRET" hint="Identifiant de l'entreprise">
-          <Input defaultValue="892 451 237 00015" />
+          <TextInput
+            value={draft.siret}
+            onChange={(v) => set("siret", v)}
+            placeholder="892 451 237 00015"
+          />
         </Field>
         <Field label="TVA intracommunautaire">
-          <Input defaultValue="FR 45 892451237" />
+          <TextInput
+            value={draft.vatNumber}
+            onChange={(v) => set("vatNumber", v)}
+            placeholder="FR 45 892451237"
+          />
         </Field>
         <div className="col-span-2">
           <Field label="Description publique">
             <textarea
-              defaultValue="Brasserie contemporaine à Paris 11ᵉ, cuisine de saison et produits du marché."
+              value={draft.description}
+              onChange={(e) => set("description", e.target.value)}
               rows={3}
-              className="bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors resize-none"
+              className="bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors resize-none w-full"
             />
           </Field>
         </div>
       </div>
+
+      {error && (
+        <div className="mt-3 text-[11.5px] text-danger inline-flex items-center gap-2">
+          <AlertTriangle size={12} />
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end mt-4">
+        <button
+          onClick={save}
+          disabled={saving || !dirty}
+          className={cn(
+            "btn-primary inline-flex items-center gap-2",
+            (!dirty || saving) && "opacity-60 cursor-not-allowed"
+          )}
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+          Enregistrer
+        </button>
+      </div>
     </Card>
+  );
+}
+
+function TextInput({
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors"
+    />
   );
 }
 
 function HoursForm() {
-  const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const { restaurant, refreshRestaurant } = useAuth();
+  const [draft, setDraft] = useState<WeeklyHours>(() => restaurant?.hours ?? defaultHours());
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (restaurant) setDraft(restaurant.hours);
+  }, [restaurant?.id, restaurant?.hours]);
+
+  const dirty = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(restaurant?.hours ?? defaultHours()),
+    [draft, restaurant?.hours]
+  );
+
+  const updateDay = (key: WeekdayKey, patch: Partial<DaySchedule>) => {
+    setDraft((d) => ({ ...d, [key]: { ...d[key], ...patch } }));
+    setSuccess(false);
+    setError(null);
+  };
+
+  const updateSlot = (
+    key: WeekdayKey,
+    slot: "lunch" | "dinner",
+    field: "start" | "end",
+    value: string
+  ) => {
+    setDraft((d) => {
+      const day = d[key];
+      const current = day[slot] ?? { start: "12:00", end: "14:00" };
+      return {
+        ...d,
+        [key]: { ...day, [slot]: { ...current, [field]: value } },
+      };
+    });
+    setSuccess(false);
+    setError(null);
+  };
+
+  const toggleSlot = (key: WeekdayKey, slot: "lunch" | "dinner") => {
+    setDraft((d) => {
+      const day = d[key];
+      const next: DaySchedule = {
+        ...day,
+        [slot]: day[slot]
+          ? null
+          : slot === "lunch"
+          ? { start: "12:00", end: "14:30" }
+          : { start: "19:00", end: "23:00" },
+      };
+      return { ...d, [key]: next };
+    });
+    setSuccess(false);
+    setError(null);
+  };
+
+  const save = async () => {
+    if (!restaurant) return;
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const { updateRestaurant } = await import("@/lib/api/restaurant");
+      await updateRestaurant(restaurant.id, { hours: draft });
+      await refreshRestaurant();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Horaires d'ouverture</CardTitle>
+        {success && (
+          <span className="text-[11px] text-ok mono inline-flex items-center gap-1">
+            <Check size={12} /> Enregistré
+          </span>
+        )}
       </CardHeader>
+
       <div className="flex flex-col gap-2">
-        {days.map((d, i) => (
-          <div
-            key={d}
-            className="grid items-center gap-3 py-[10px] border-b border-line last:border-b-0"
-            style={{ gridTemplateColumns: "140px 100px 1fr 1fr" }}
-          >
-            <div className="text-[13px] font-semibold">{d}</div>
-            <Toggle defaultChecked={i !== 0} label={i === 0 ? "Fermé" : "Ouvert"} />
-            <div className="flex items-center gap-2 text-[12px] text-ink-3">
-              <span className="chip-uppercase">Déjeuner</span>
-              <Input defaultValue="12:00" />
-              <span>→</span>
-              <Input defaultValue="14:30" />
+        {WEEKDAYS.map(({ key, label }) => {
+          const day = draft[key];
+          return (
+            <div
+              key={key}
+              className="grid items-center gap-3 py-[10px] border-b border-line last:border-b-0"
+              style={{ gridTemplateColumns: "120px 90px 1fr 1fr" }}
+            >
+              <div className="text-[13px] font-semibold">{label}</div>
+              <button
+                type="button"
+                onClick={() => updateDay(key, { open: !day.open })}
+                className="flex items-center gap-[10px] text-[12px] text-ink-2"
+              >
+                <span
+                  className={cn(
+                    "relative w-[32px] h-[18px] rounded-full transition-colors flex-shrink-0",
+                    day.open ? "bg-ember" : "bg-bg-3 border border-line"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-[2px] w-[12px] h-[12px] rounded-full bg-cream transition-all",
+                      day.open ? "left-[17px]" : "left-[2px]"
+                    )}
+                  />
+                </span>
+                {day.open ? "Ouvert" : "Fermé"}
+              </button>
+
+              <SlotEditor
+                label="Déjeuner"
+                slot={day.open ? day.lunch : null}
+                disabled={!day.open}
+                onToggle={() => toggleSlot(key, "lunch")}
+                onChange={(field, v) => updateSlot(key, "lunch", field, v)}
+                onClear={() => toggleSlot(key, "lunch")}
+              />
+
+              <SlotEditor
+                label="Dîner"
+                slot={day.open ? day.dinner : null}
+                disabled={!day.open}
+                onToggle={() => toggleSlot(key, "dinner")}
+                onChange={(field, v) => updateSlot(key, "dinner", field, v)}
+                onClear={() => toggleSlot(key, "dinner")}
+              />
             </div>
-            <div className="flex items-center gap-2 text-[12px] text-ink-3">
-              <span className="chip-uppercase">Dîner</span>
-              <Input defaultValue="19:00" />
-              <span>→</span>
-              <Input defaultValue={i >= 4 ? "01:00" : "23:00"} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
+      </div>
+
+      {error && (
+        <div className="mt-3 text-[11.5px] text-danger inline-flex items-center gap-2">
+          <AlertTriangle size={12} />
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end mt-4">
+        <button
+          onClick={save}
+          disabled={saving || !dirty || !restaurant}
+          className={cn(
+            "btn-primary inline-flex items-center gap-2",
+            (!dirty || saving || !restaurant) && "opacity-60 cursor-not-allowed"
+          )}
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+          Enregistrer
+        </button>
       </div>
     </Card>
   );
 }
 
+function SlotEditor({
+  label,
+  slot,
+  disabled,
+  onToggle,
+  onChange,
+  onClear,
+}: {
+  label: string;
+  slot: { start: string; end: string } | null;
+  disabled: boolean;
+  onToggle: () => void;
+  onChange: (field: "start" | "end", value: string) => void;
+  onClear: () => void;
+}) {
+  if (disabled) {
+    return (
+      <div className="flex items-center gap-2 text-[12px] text-ink-4">
+        <span className="chip-uppercase">{label}</span>
+        <span className="italic">—</span>
+      </div>
+    );
+  }
+  if (!slot) {
+    return (
+      <div className="flex items-center gap-2 text-[12px] text-ink-3">
+        <span className="chip-uppercase">{label}</span>
+        <button type="button" className="btn-ghost text-[11px]" onClick={onToggle}>
+          + Ajouter
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 text-[12px] text-ink-3">
+      <span className="chip-uppercase">{label}</span>
+      <input
+        type="time"
+        value={slot.start}
+        onChange={(e) => onChange("start", e.target.value)}
+        className="bg-bg-2 border border-line rounded-[8px] px-2 py-[6px] text-[12px] text-ink-1 outline-none focus:border-line-2 mono"
+      />
+      <span>→</span>
+      <input
+        type="time"
+        value={slot.end}
+        onChange={(e) => onChange("end", e.target.value)}
+        className="bg-bg-2 border border-line rounded-[8px] px-2 py-[6px] text-[12px] text-ink-1 outline-none focus:border-line-2 mono"
+      />
+      <button
+        type="button"
+        onClick={onClear}
+        className="text-ink-4 hover:text-danger p-1"
+        title="Supprimer ce service"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
+
 function PaymentForm() {
+  const { restaurant, refreshRestaurant } = useAuth();
+  const [draft, setDraft] = useState<PaymentSettings>(
+    () => restaurant?.payment ?? { ...DEFAULT_PAYMENT }
+  );
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (restaurant) setDraft(restaurant.payment);
+  }, [restaurant?.id, restaurant?.payment]);
+
+  const dirty = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(restaurant?.payment ?? DEFAULT_PAYMENT),
+    [draft, restaurant?.payment]
+  );
+
+  const setBool = (key: keyof PaymentSettings, value: boolean) => {
+    setDraft((d) => ({ ...d, [key]: value }));
+    setSuccess(false);
+    setError(null);
+  };
+  const setNumber = (key: "serviceRate" | "vatRate", value: string) => {
+    const n = Number(value.replace(",", ".").replace(/[^0-9.-]/g, ""));
+    setDraft((d) => ({ ...d, [key]: isFinite(n) ? n : 0 }));
+    setSuccess(false);
+    setError(null);
+  };
+
+  const save = async () => {
+    if (!restaurant) return;
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const { updateRestaurant } = await import("@/lib/api/restaurant");
+      await updateRestaurant(restaurant.id, { payment: draft });
+      await refreshRestaurant();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Moyens de paiement & facturation</CardTitle>
+        {success && (
+          <span className="text-[11px] text-ok mono inline-flex items-center gap-1">
+            <Check size={12} /> Enregistré
+          </span>
+        )}
       </CardHeader>
       <div className="flex flex-col gap-3">
-        <Toggle defaultChecked label="Cartes bancaires (Stripe Terminal)" />
-        <Toggle defaultChecked label="Espèces" />
-        <Toggle defaultChecked label="Titres restaurant (papier + dématérialisés)" />
-        <Toggle label="Apple Pay · Google Pay" />
-        <Toggle defaultChecked label="American Express" />
+        <ControlledToggle
+          checked={draft.card}
+          onChange={(v) => setBool("card", v)}
+          label="Cartes bancaires (Stripe Terminal)"
+        />
+        <ControlledToggle
+          checked={draft.cash}
+          onChange={(v) => setBool("cash", v)}
+          label="Espèces"
+        />
+        <ControlledToggle
+          checked={draft.ticketResto}
+          onChange={(v) => setBool("ticketResto", v)}
+          label="Titres restaurant (papier + dématérialisés)"
+        />
+        <ControlledToggle
+          checked={draft.walletPay}
+          onChange={(v) => setBool("walletPay", v)}
+          label="Apple Pay · Google Pay"
+        />
+        <ControlledToggle
+          checked={draft.amex}
+          onChange={(v) => setBool("amex", v)}
+          label="American Express"
+        />
       </div>
       <div className="grid grid-cols-2 gap-4 mt-6">
-        <Field label="Taux de service par défaut">
-          <Input defaultValue="12 %" />
+        <Field label="Taux de service par défaut" hint="En pourcentage (ex. 12)">
+          <TextInput
+            value={String(draft.serviceRate)}
+            onChange={(v) => setNumber("serviceRate", v)}
+            placeholder="12"
+          />
         </Field>
-        <Field label="TVA restauration sur place">
-          <Input defaultValue="10 %" />
+        <Field label="TVA restauration sur place" hint="En pourcentage (ex. 10)">
+          <TextInput
+            value={String(draft.vatRate)}
+            onChange={(v) => setNumber("vatRate", v)}
+            placeholder="10"
+          />
         </Field>
       </div>
+
+      {error && (
+        <div className="mt-3 text-[11.5px] text-danger inline-flex items-center gap-2">
+          <AlertTriangle size={12} />
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end mt-4">
+        <button
+          onClick={save}
+          disabled={saving || !dirty || !restaurant}
+          className={cn(
+            "btn-primary inline-flex items-center gap-2",
+            (!dirty || saving || !restaurant) && "opacity-60 cursor-not-allowed"
+          )}
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+          Enregistrer
+        </button>
+      </div>
     </Card>
+  );
+}
+
+function ControlledToggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex items-center gap-[10px] text-[13px] text-ink-2"
+    >
+      <span
+        className={cn(
+          "relative w-[32px] h-[18px] rounded-full transition-colors flex-shrink-0",
+          checked ? "bg-ember" : "bg-bg-3 border border-line"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-[2px] w-[12px] h-[12px] rounded-full bg-cream transition-all",
+            checked ? "left-[17px]" : "left-[2px]"
+          )}
+        />
+      </span>
+      {label}
+    </button>
   );
 }
 

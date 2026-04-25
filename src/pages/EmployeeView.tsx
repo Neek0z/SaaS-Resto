@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { listOrders } from "@/lib/api/orders";
+import { listOrders, updateOrderStatus } from "@/lib/api/orders";
 import { listReservations } from "@/lib/api/reservations";
-import type { Order, OrderStatus, Reservation } from "@/lib/mock-data";
+import type { Order, OrderStatus } from "@/lib/order-types";
+import type { Reservation } from "@/lib/reservation-types";
 import { OrderRow } from "@/components/orders/OrderRow";
 import { ResaRow } from "@/components/reservations/ResaRow";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { RESTO } from "@/lib/mock-data";
 
 export default function EmployeeView() {
   const navigate = useNavigate();
@@ -33,8 +33,14 @@ export default function EmployeeView() {
     void refresh();
   }, []);
 
-  const updateOrderStatus = (id: string, status: OrderStatus) => {
+  const advanceOrderStatus = async (id: string, status: OrderStatus) => {
+    const before = orders;
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+    try {
+      await updateOrderStatus(id, status);
+    } catch {
+      setOrders(before);
+    }
   };
 
   const activeOrders = useMemo(
@@ -54,7 +60,7 @@ export default function EmployeeView() {
     navigate("/login", { replace: true });
   };
 
-  const restoName = restaurant?.name ?? RESTO.name;
+  const restoName = restaurant?.name ?? "—";
   const userInitials = (user?.email ?? "?").slice(0, 1).toUpperCase();
 
   return (
@@ -125,7 +131,7 @@ export default function EmployeeView() {
                     order={o}
                     onClick={() => {
                       const next = nextStatus(o.status);
-                      if (next) updateOrderStatus(o.id, next);
+                      if (next) void advanceOrderStatus(o.id, next);
                     }}
                   />
                 ))}
@@ -157,7 +163,7 @@ export default function EmployeeView() {
             ) : (
               <div className="flex flex-col gap-[2px]">
                 {todayResas.map((r) => (
-                  <ResaRow key={`${r.time}-${r.table}`} r={r} />
+                  <ResaRow key={r.id} r={r} />
                 ))}
               </div>
             )}

@@ -1,10 +1,15 @@
-import type { TeamMember } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
+import type { TeamMember } from "@/lib/team-types";
 import { cn } from "@/lib/utils";
 
 const START_H = 12;
 const END_H = 26; // 02:00 next day
 const TOTAL = END_H - START_H; // 14 hours
-const NOW = 19 + 42 / 60; // 19:42 demo
+
+function currentHour(): number {
+  const d = new Date();
+  return d.getHours() + d.getMinutes() / 60;
+}
 
 const HOURS = Array.from({ length: TOTAL + 1 }, (_, i) => START_H + i);
 
@@ -35,6 +40,12 @@ const KIND_BORDER: Record<TeamMember["kind"], string> = {
 };
 
 export function SchedulePlanning({ team }: { team: TeamMember[] }) {
+  const [now, setNow] = useState<number>(() => currentHour());
+  useEffect(() => {
+    const id = setInterval(() => setNow(currentHour()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const showNow = now >= START_H && now <= END_H;
   return (
     <div className="flex flex-col gap-0">
       {/* Hour axis */}
@@ -96,7 +107,7 @@ export function SchedulePlanning({ team }: { team: TeamMember[] }) {
               />
 
               {/* Break overlay */}
-              {m.breakStart !== undefined && m.breakEnd !== undefined && (
+              {m.breakStart !== null && m.breakEnd !== null && (
                 <div
                   className="absolute top-1/2 -translate-y-1/2 h-[16px] rounded-[4px]"
                   style={{
@@ -113,18 +124,20 @@ export function SchedulePlanning({ team }: { team: TeamMember[] }) {
         ))}
 
         {/* "Now" vertical line */}
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{ left: `calc(160px + ${pct(NOW)}% - ${pct(NOW) * 1.6}px)` }}
-        >
-          <div className="absolute top-0 bottom-0 w-px bg-ember" />
+        {showNow && (
           <div
-            className="absolute -top-[10px] text-[9.5px] mono text-ember font-semibold bg-bg-1 px-1 rounded"
-            style={{ transform: "translateX(-50%)" }}
+            className="absolute top-0 bottom-0 pointer-events-none"
+            style={{ left: `calc(160px + ${pct(now)}% - ${pct(now) * 1.6}px)` }}
           >
-            {fmt(NOW)}
+            <div className="absolute top-0 bottom-0 w-px bg-ember" />
+            <div
+              className="absolute -top-[10px] text-[9.5px] mono text-ember font-semibold bg-bg-1 px-1 rounded"
+              style={{ transform: "translateX(-50%)" }}
+            >
+              {fmt(now)}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Legend */}

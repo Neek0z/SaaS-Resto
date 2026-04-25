@@ -1,4 +1,4 @@
-import type { Reservation } from "@/lib/mock-data";
+import type { Reservation } from "@/lib/reservation-types";
 import { cn } from "@/lib/utils";
 
 export function ResaRow({

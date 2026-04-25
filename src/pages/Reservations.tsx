@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarPlus, ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { listReservations } from "@/lib/api/reservations";
-import type { Reservation, ResaStatus } from "@/lib/mock-data";
+import { useReservations } from "@/hooks/useReservations";
+import type { Reservation, ResaStatus, NewReservation } from "@/lib/reservation-types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResaRow } from "@/components/reservations/ResaRow";
 import { ReservationDrawer } from "@/components/reservations/ReservationDrawer";
@@ -15,36 +15,44 @@ type StatusFilter = "all" | ResaStatus;
 const LUNCH_HOURS = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"];
 const DINNER_HOURS = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00"];
 
+function shiftDate(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateLabel(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function Reservations() {
-  const [resas, setResas] = useState<Reservation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { reservations, loading, error, date, setDate, add, update, remove } = useReservations();
   const [service, setService] = useState<Service>("dinner");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
-  const [dateLabel] = useState("Vendredi 24 avril 2026");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
-  const keyOf = (r: Reservation) => `${r.time}-${r.table}`;
-  const selected = resas.find((r) => keyOf(r) === selectedKey) ?? null;
+  const selected = reservations.find((r) => r.id === selectedId) ?? null;
 
-  const updateStatus = (key: string, status: ResaStatus) => {
-    setResas((prev) => prev.map((r) => (keyOf(r) === key ? { ...r, status } : r)));
+  const handleStatusChange = (id: string, nextStatus: ResaStatus) => {
+    void update(id, { status: nextStatus });
   };
 
-  const addResa = (r: Reservation) => {
-    setResas((prev) => [...prev, r].sort((a, b) => a.time.localeCompare(b.time)));
+  const handleCreate = async (input: NewReservation) => {
+    const created = await add(input);
+    if (created) setNewOpen(false);
   };
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        setResas(await listReservations());
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const handleDelete = async (id: string) => {
+    await remove(id);
+    setSelectedId(null);
+  };
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,39 +65,37 @@ export default function Reservations() {
   }, [location, navigate]);
 
   const filtered = useMemo(() => {
-    return resas.filter((r) => {
-      if (service === "lunch" && !LUNCH_HOURS.some((h) => r.time.startsWith(h.slice(0, 2)))) return false;
-      if (service === "dinner" && Number(r.time.split(":")[0]) < 17) return false;
+    return reservations.filter((r) => {
       if (service === "lunch" && Number(r.time.split(":")[0]) >= 17) return false;
+      if (service === "dinner" && Number(r.time.split(":")[0]) < 17) return false;
       if (status !== "all" && r.status !== status) return false;
       if (query) {
         const q = query.toLowerCase();
         if (
           !r.name.toLowerCase().includes(q) &&
           !r.table.toLowerCase().includes(q) &&
-          !(r.note ?? "").toLowerCase().includes(q)
+          !r.note.toLowerCase().includes(q)
         )
           return false;
       }
       return true;
     });
-  }, [resas, service, status, query]);
+  }, [reservations, service, status, query]);
 
   const stats = useMemo(() => {
-    const total = resas.length;
-    const covers = resas.reduce((s, r) => s + r.covers, 0);
-    const seated = resas.filter((r) => r.status === "seated").length;
-    const confirmed = resas.filter((r) => r.status === "confirmed").length;
-    const noshow = resas.filter((r) => r.status === "noshow").length;
+    const total = reservations.length;
+    const covers = reservations.reduce((s, r) => s + r.covers, 0);
+    const seated = reservations.filter((r) => r.status === "seated").length;
+    const confirmed = reservations.filter((r) => r.status === "confirmed").length;
+    const noshow = reservations.filter((r) => r.status === "noshow").length;
     return { total, covers, seated, confirmed, noshow };
-  }, [resas]);
+  }, [reservations]);
 
-  // Group filtered resas by hour slot for timeline
   const groupedByHour = useMemo(() => {
     const hours = service === "lunch" ? LUNCH_HOURS : DINNER_HOURS;
     return hours.map((h) => ({
       hour: h,
-      rows: filtered.filter((r) => r.time.startsWith(h.slice(0, 2)) && matchesHour(r.time, h)),
+      rows: filtered.filter((r) => matchesHour(r.time, h)),
     }));
   }, [filtered, service]);
 
@@ -103,13 +109,21 @@ export default function Reservations() {
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <button className="icon-btn" title="Jour précédent">
+          <button
+            className="icon-btn"
+            title="Jour précédent"
+            onClick={() => setDate(shiftDate(date, -1))}
+          >
             <ChevronLeft size={14} />
           </button>
           <div className="px-4 py-[7px] bg-bg-1 border border-line rounded-[10px] text-[13px] mono">
-            {dateLabel}
+            {formatDateLabel(date)}
           </div>
-          <button className="icon-btn" title="Jour suivant">
+          <button
+            className="icon-btn"
+            title="Jour suivant"
+            onClick={() => setDate(shiftDate(date, 1))}
+          >
             <ChevronRight size={14} />
           </button>
           <button className="btn-primary ml-2" onClick={() => setNewOpen(true)}>
@@ -119,7 +133,12 @@ export default function Reservations() {
         </div>
       </div>
 
-      {/* Stats strip */}
+      {error && (
+        <div className="mb-4 p-3 rounded-[10px] border border-danger/40 bg-danger/10 text-danger text-[12px]">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-12 gap-4 mb-4">
         <StatTile className="col-span-3" label="Total résas" value={stats.total} hint={`${stats.covers} couverts`} tone="cream" />
         <StatTile className="col-span-2" label="Installées" value={stats.seated} hint="À table" tone="ok" />
@@ -134,7 +153,6 @@ export default function Reservations() {
         />
       </div>
 
-      {/* Filters */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="segmented">
@@ -186,7 +204,6 @@ export default function Reservations() {
         </div>
       </Card>
 
-      {/* Two-column: timeline + floor plan */}
       <div className="grid grid-cols-12 gap-4 mb-4">
         <Card className="col-span-8">
           <CardHeader>
@@ -200,6 +217,16 @@ export default function Reservations() {
 
           {loading ? (
             <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
+          ) : reservations.length === 0 ? (
+            <div className="py-16 text-center text-ink-3 text-[13px]">
+              Aucune réservation pour ce jour.
+              <button
+                className="block mx-auto mt-3 btn-primary"
+                onClick={() => setNewOpen(true)}
+              >
+                <CalendarPlus size={13} /> Ajouter la première
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col gap-3">
               {groupedByHour.map(({ hour, rows }) => (
@@ -211,8 +238,8 @@ export default function Reservations() {
                     {rows.length === 0 ? (
                       <div className="text-[11px] text-ink-4 italic pt-2">—</div>
                     ) : (
-                      rows.map((r, i) => (
-                        <ResaRow key={`${r.time}-${i}`} r={r} onClick={() => setSelectedKey(keyOf(r))} />
+                      rows.map((r) => (
+                        <ResaRow key={r.id} r={r} onClick={() => setSelectedId(r.id)} />
                       ))
                     )}
                   </div>
@@ -228,7 +255,7 @@ export default function Reservations() {
               Plan · <span className="text-ember-soft">occupation tables</span>
             </CardTitle>
           </CardHeader>
-          <FloorPlan resas={resas} onSelect={(r) => setSelectedKey(keyOf(r))} />
+          <FloorPlan resas={reservations} onSelect={(r) => setSelectedId(r.id)} />
           <div className="mt-4 flex items-center gap-3 text-[11px] text-ink-3 flex-wrap">
             <LegendDot color="var(--ok)" label="Installée" />
             <LegendDot color="var(--ember)" label="Confirmée" />
@@ -240,20 +267,20 @@ export default function Reservations() {
 
       <ReservationDrawer
         resa={selected}
-        onClose={() => setSelectedKey(null)}
-        onStatusChange={updateStatus}
+        onClose={() => setSelectedId(null)}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
       />
       <NewReservationModal
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        onCreate={addResa}
+        onCreate={handleCreate}
       />
     </>
   );
 }
 
 function matchesHour(t: string, hour: string) {
-  // t like "19:45", hour like "19:30" → bucket by 30-min slot
   const [th, tm] = t.split(":").map(Number);
   const [hh, hm] = hour.split(":").map(Number);
   if (th !== hh) return false;
@@ -287,11 +314,9 @@ function StatTile({
 }
 
 function FloorPlan({ resas, onSelect }: { resas: Reservation[]; onSelect?: (r: Reservation) => void }) {
-  // Build a simple grid of tables T1..T20 with status color
   const tables = Array.from({ length: 20 }, (_, i) => `T${i + 1}`);
   const byTable = new Map<string, Reservation>();
   resas.forEach((r) => {
-    // keep the most advanced status (seated > confirmed > noshow)
     const existing = byTable.get(r.table);
     if (!existing) byTable.set(r.table, r);
     else if (existing.status === "noshow" || (existing.status === "confirmed" && r.status === "seated")) {

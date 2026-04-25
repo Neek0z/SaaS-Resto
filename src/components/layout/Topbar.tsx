@@ -15,11 +15,10 @@ import {
   Users as UsersIcon,
   UtensilsCrossed,
 } from "lucide-react";
-import { RESTO } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { PLAN_LABELS } from "@/config/plans";
 import { ROLE_LABELS, ROLE_ORDER, isRoleAtLeast, type Role } from "@/config/roles";
-import { cn } from "@/lib/utils";
+import { cn, currentServiceLabel, formatLongDateFr } from "@/lib/utils";
 
 type PopoverId = "notif" | "chat" | "menu" | "rolesim";
 
@@ -33,43 +32,7 @@ type Notif = {
   unread: boolean;
 };
 
-const NOTIFS: Notif[] = [
-  {
-    id: "n1",
-    kind: "reservation",
-    text: "Nouvelle réservation · 4 couverts · 20h30 · Pierre Martin",
-    ago: "il y a 2 min",
-    unread: true,
-  },
-  {
-    id: "n2",
-    kind: "avis",
-    text: "Avis 2★ sur Google · « Service un peu lent ce soir »",
-    ago: "il y a 18 min",
-    unread: true,
-  },
-  {
-    id: "n3",
-    kind: "stock",
-    text: "Stock bas · Côte de bœuf maturée · 2 portions restantes",
-    ago: "il y a 32 min",
-    unread: true,
-  },
-  {
-    id: "n4",
-    kind: "equipe",
-    text: "Léa Moreau a pointé son arrivée à 16h47",
-    ago: "il y a 1 h",
-    unread: false,
-  },
-  {
-    id: "n5",
-    kind: "commande",
-    text: "Commande #1208 servie · table 12",
-    ago: "il y a 2 h",
-    unread: false,
-  },
-];
+const NOTIFS: Notif[] = [];
 
 const NOTIF_META: Record<NotifKind, { Icon: typeof Bell; tint: string; label: string }> = {
   reservation: { Icon: CalendarDays, tint: "var(--ember-soft)", label: "Réservation" },
@@ -90,48 +53,7 @@ type Conversation = {
   online: boolean;
 };
 
-const CONVERSATIONS: Conversation[] = [
-  {
-    id: "c1",
-    name: "Léa Moreau",
-    role: "Manager salle",
-    initials: "LM",
-    preview: "Je prends la table 8, ils viennent d'arriver.",
-    ago: "16h52",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: "c2",
-    name: "Théo Laurent",
-    role: "Chef de cuisine",
-    initials: "TL",
-    preview: "Plus de tartare ce soir, on remplace par carpaccio.",
-    ago: "16h45",
-    unread: 1,
-    online: true,
-  },
-  {
-    id: "c3",
-    name: "Service Soir",
-    role: "Groupe · 5 membres",
-    initials: "SS",
-    preview: "Marc : Pleine salle ce soir, on reste concentrés 💪",
-    ago: "16h30",
-    unread: 0,
-    online: true,
-  },
-  {
-    id: "c4",
-    name: "Karim Aziz",
-    role: "Plonge",
-    initials: "KA",
-    preview: "OK pour ouvrir demain à 9h.",
-    ago: "15h12",
-    unread: 0,
-    online: false,
-  },
-];
+const CONVERSATIONS: Conversation[] = [];
 
 export function Topbar() {
   const navigate = useNavigate();
@@ -166,8 +88,10 @@ export function Topbar() {
   const toggle = (id: PopoverId) =>
     setOpenPopover((cur) => (cur === id ? null : id));
 
-  const displayName = restaurant?.name ?? user?.email ?? RESTO.name;
+  const displayName = restaurant?.name ?? user?.email ?? "—";
   const initials = (restaurant?.name ?? user?.email ?? "?").slice(0, 1).toUpperCase();
+  const dateLabel = formatLongDateFr();
+  const serviceLabel = currentServiceLabel();
 
   const unreadNotifs = notifs.filter((n) => n.unread).length;
   const unreadChats = CONVERSATIONS.reduce((sum, c) => sum + c.unread, 0);
@@ -188,7 +112,7 @@ export function Topbar() {
     >
       <div className="flex-1">
         <div className="mono text-[12px] text-ink-3 mb-[2px] uppercase tracking-wide">
-          {RESTO.date.toUpperCase()} · {RESTO.service.toUpperCase()}
+          {dateLabel.toUpperCase()} · {serviceLabel.toUpperCase()}
         </div>
         <h1 className="display font-medium text-[28px] m-0 leading-tight">
           Bonsoir {displayName},{" "}

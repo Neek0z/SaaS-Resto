@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Lock } from "lucide-react";
 import { Delta } from "./Delta";
-import { KPIS, REVENUE_7D } from "@/lib/mock-data";
+import { useDashboardCtx } from "@/hooks/useDashboard";
 import { cn, formatEuros } from "@/lib/utils";
 import { RoleGate } from "@/components/RoleGate";
 
@@ -9,7 +9,26 @@ type Period = "today" | "week" | "month";
 
 export function KpiStrip() {
   const [period, setPeriod] = useState<Period>("today");
-  const k = KPIS;
+  const { data, loading, error } = useDashboardCtx();
+
+  if (error) {
+    return (
+      <div className="kpi col-span-12 mb-4 text-[12px] text-danger">{error}</div>
+    );
+  }
+
+  if (!data || loading) {
+    return (
+      <div className="grid grid-cols-12 gap-4 mb-4">
+        <div className="kpi hero col-span-4 animate-pulse h-[160px]" />
+        <div className="kpi col-span-3 animate-pulse h-[160px]" />
+        <div className="kpi col-span-2 animate-pulse h-[160px]" />
+        <div className="kpi col-span-3 animate-pulse h-[160px]" />
+      </div>
+    );
+  }
+
+  const k = data.kpis;
   const rev =
     period === "today" ? k.revenue.today : period === "week" ? k.revenue.week : k.revenue.month;
   const revDelta =
@@ -19,8 +38,9 @@ export function KpiStrip() {
       ? k.revenue.weekDelta
       : k.revenue.monthDelta;
 
-  const progress = Math.round((k.covers.value / k.covers.goal) * 100);
-  const sparkData = REVENUE_7D.flatMap((d) => [d.lunch, d.dinner]);
+  const progress = k.covers.goal === 0 ? 0 : Math.round((k.covers.value / k.covers.goal) * 100);
+  const sparkData = data.revenue7d.flatMap((d) => [d.lunch, d.dinner]);
+  const placesLeft = Math.max(0, k.covers.goal - k.covers.value);
 
   return (
     <div className="grid grid-cols-12 gap-4 mb-4">
@@ -52,7 +72,7 @@ export function KpiStrip() {
             ))}
           </div>
         </div>
-        <Spark data={sparkData} />
+        {sparkData.length > 1 && <Spark data={sparkData} />}
       </div>
 
       {/* Couverts */}
@@ -78,7 +98,7 @@ export function KpiStrip() {
           })}
         </div>
         <div className="text-[11.5px] text-ink-3 mt-[10px]">
-          {progress}% de l'objectif · {k.covers.goal - k.covers.value} places restantes
+          {progress}% de l'objectif · {placesLeft} places restantes
         </div>
       </div>
 
@@ -107,7 +127,7 @@ export function KpiStrip() {
           </div>
           <Delta value={k.avgTicket.delta} />
           <div className="text-[11.5px] text-ink-3 mt-[10px]">
-            Boisson · 28% · Dessert · 41%
+            Sur les commandes du jour
           </div>
         </div>
       </RoleGate>

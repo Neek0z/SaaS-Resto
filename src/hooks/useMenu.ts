@@ -14,9 +14,10 @@ import {
   type NewItem,
 } from "@/lib/api/menu-db";
 import type { MenuCategory, MenuItem } from "@/lib/menu-types";
+import { extractErrorMessage } from "@/lib/errors";
 
 function translateError(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e);
+  const msg = extractErrorMessage(e);
   const lower = msg.toLowerCase();
   if (lower.includes("row level security") || lower.includes("permission")) {
     return "Accès refusé. Vérifiez que vous êtes connecté.";
