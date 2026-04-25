@@ -8,26 +8,33 @@ export function slugify(value: string): string {
     .slice(0, 64);
 }
 
-const PUBLIC_BASE = "https://severe.app";
+function getPublicBase(): string {
+  const fromEnv = (import.meta.env.VITE_PUBLIC_BASE_URL as string | undefined)?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "";
+}
 
 // Lien unique imprimé sur le QR client. Le hub /chez/:slug expose
 // ensuite les trois actions (carte, réservation, fidélité).
 export function publicHubUrl(slug: string, table?: number | string): string {
-  const base = `${PUBLIC_BASE}/chez/${slug}`;
+  const base = `${getPublicBase()}/chez/${slug}`;
   if (table === undefined || table === null || table === "") return base;
   return `${base}?table=${encodeURIComponent(String(table))}`;
 }
 
 export function publicMenuUrl(slug: string, table?: number | string): string {
-  const base = `${PUBLIC_BASE}/carte/${slug}`;
+  const base = `${getPublicBase()}/carte/${slug}`;
   if (table === undefined || table === null || table === "") return base;
   return `${base}?table=${encodeURIComponent(String(table))}`;
 }
 
 export function publicLoyaltyUrl(slug: string): string {
-  return `${PUBLIC_BASE}/fidelite/${slug}`;
+  return `${getPublicBase()}/fidelite/${slug}`;
 }
 
 export function publicReservationUrl(slug: string): string {
-  return `${PUBLIC_BASE}/reserver/${slug}`;
+  return `${getPublicBase()}/reserver/${slug}`;
 }
