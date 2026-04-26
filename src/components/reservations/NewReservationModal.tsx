@@ -40,6 +40,8 @@ export function NewReservationModal({
   onClose,
   onCreate,
   defaultDate,
+  defaultTime,
+  defaultTable,
   tables,
   existingReservations,
 }: {
@@ -47,15 +49,17 @@ export function NewReservationModal({
   onClose: () => void;
   onCreate?: (r: NewReservation) => void | Promise<void>;
   defaultDate?: string;
+  defaultTime?: string;
+  defaultTable?: string;
   tables: TableEntry[];
   existingReservations: Reservation[];
 }) {
   const initialDate = defaultDate ?? todayIso();
   const [name, setName] = useState("");
   const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState("20:00");
+  const [time, setTime] = useState(defaultTime ?? "20:00");
   const [covers, setCovers] = useState(2);
-  const [table, setTable] = useState<string>("");
+  const [table, setTable] = useState<string>(defaultTable ?? "");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
@@ -80,9 +84,10 @@ export function NewReservationModal({
   useEffect(() => {
     if (open) {
       setDate(defaultDate ?? todayIso());
-      setTable("");
+      setTable(defaultTable ?? "");
+      if (defaultTime) setTime(defaultTime);
     }
-  }, [open, defaultDate]);
+  }, [open, defaultDate, defaultTable, defaultTime]);
 
   // Auto-suggestion : prend la première table libre avec capacité suffisante.
   useEffect(() => {

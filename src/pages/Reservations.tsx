@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResaRow } from "@/components/reservations/ResaRow";
 import { ReservationDrawer } from "@/components/reservations/ReservationDrawer";
 import { NewReservationModal } from "@/components/reservations/NewReservationModal";
+import { ReservationsPlanning } from "@/components/reservations/ReservationsPlanning";
 import { cn } from "@/lib/utils";
 
 type Service = "all" | "lunch" | "dinner";
@@ -43,6 +44,7 @@ export default function Reservations() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [prefill, setPrefill] = useState<{ table?: string; time?: string }>({});
   const selected = reservations.find((r) => r.id === selectedId) ?? null;
 
   const handleStatusChange = (id: string, nextStatus: ResaStatus) => {
@@ -62,15 +64,18 @@ export default function Reservations() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    const state = location.state as { openNew?: boolean; openId?: string } | null;
+    const state = location.state as
+      | { openNew?: boolean; openId?: string; date?: string }
+      | null;
     if (state?.openNew) {
       setNewOpen(true);
       navigate(location.pathname, { replace: true, state: null });
     } else if (state?.openId) {
+      if (state.date && state.date !== date) setDate(state.date);
       setSelectedId(state.openId);
       navigate(location.pathname, { replace: true, state: null });
     }
-  }, [location, navigate]);
+  }, [location, navigate, date, setDate]);
 
   const filtered = useMemo(() => {
     return reservations.filter((r) => {
@@ -125,9 +130,18 @@ export default function Reservations() {
           >
             <ChevronLeft size={14} />
           </button>
-          <div className="px-4 py-[7px] bg-bg-1 border border-line rounded-[10px] text-[13px] mono">
-            {formatDateLabel(date)}
-          </div>
+          <label className="relative inline-flex items-center px-3 py-[7px] bg-bg-1 border border-line rounded-[10px] text-[13px] mono cursor-pointer hover:border-ember/40 transition-colors">
+            <span className="capitalize">{formatDateLabel(date)}</span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                if (e.target.value) setDate(e.target.value);
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              aria-label="Choisir une date"
+            />
+          </label>
           <button
             className="icon-btn"
             title="Jour suivant"
@@ -135,6 +149,16 @@ export default function Reservations() {
           >
             <ChevronRight size={14} />
           </button>
+          {date !== new Date().toISOString().slice(0, 10) && (
+            <button
+              className="text-[11px] text-ink-3 hover:text-ember-soft mono uppercase tracking-[0.08em] px-2"
+              onClick={() => setDate(new Date().toISOString().slice(0, 10))}
+              title="Revenir à aujourd'hui"
+              type="button"
+            >
+              Aujourd&apos;hui
+            </button>
+          )}
           <button className="btn-primary ml-2" onClick={() => setNewOpen(true)}>
             <CalendarPlus size={13} />
             Nouvelle résa
@@ -282,6 +306,31 @@ export default function Reservations() {
         </Card>
       </div>
 
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>
+            Planning · <span className="text-ember-soft">disponibilité tables</span>
+          </CardTitle>
+          <span className="text-[11px] text-ink-4 mono uppercase tracking-[0.08em]">
+            {activeTables.length} table{activeTables.length > 1 ? "s" : ""} · 11h–24h
+          </span>
+        </CardHeader>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="min-w-[720px]">
+            <ReservationsPlanning
+              date={date}
+              tables={activeTables}
+              resas={reservations}
+              onSelectResa={(r) => setSelectedId(r.id)}
+              onCreateAt={(table, time) => {
+                setPrefill({ table, time });
+                setNewOpen(true);
+              }}
+            />
+          </div>
+        </div>
+      </Card>
+
       <ReservationDrawer
         resa={selected}
         onClose={() => setSelectedId(null)}
@@ -290,9 +339,14 @@ export default function Reservations() {
       />
       <NewReservationModal
         open={newOpen}
-        onClose={() => setNewOpen(false)}
+        onClose={() => {
+          setNewOpen(false);
+          setPrefill({});
+        }}
         onCreate={handleCreate}
         defaultDate={date}
+        defaultTable={prefill.table}
+        defaultTime={prefill.time}
         tables={activeTables}
         existingReservations={reservations}
       />

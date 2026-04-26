@@ -122,7 +122,7 @@ export function useNotifications() {
           createdAt: r.created_at,
           unread: !readIds.has(id),
           href: "/reservations",
-          state: { openId: r.id },
+          state: { openId: r.id, date: r.reservation_date },
         });
       }
     }
