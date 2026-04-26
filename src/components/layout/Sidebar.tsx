@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   BarChart3,
@@ -20,6 +21,21 @@ import { useSidebar, SIDEBAR_WIDTHS } from "@/lib/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_LABELS } from "@/config/roles";
 import { useSidebarCounters } from "@/hooks/useSidebarCounters";
+
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
 
 type Item = {
   to: string;
@@ -54,7 +70,9 @@ const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 export function Sidebar() {
   const { can } = usePermission();
   const { isAtLeast, role } = useRole();
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed: collapsedPref, toggle } = useSidebar();
+  const isMobile = useIsMobile();
+  const collapsed = isMobile ? false : collapsedPref;
   const { user, restaurant } = useAuth();
   const counters = useSidebarCounters();
   const badgesByPath: Record<string, string | undefined> = {
