@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  createTeamMember,
-  deleteTeamMember,
-  listTeam,
-  updateTeamMember,
+  createMember,
+  deleteMember as apiDeleteMember,
+  deleteShift as apiDeleteShift,
+  listResolvedTeam,
+  updateMember as apiUpdateMember,
+  upsertShift as apiUpsertShift,
 } from "@/lib/api/team";
-import type { NewTeamMember, TeamMember, TeamPatch } from "@/lib/team-types";
+import type {
+  NewTeamMember,
+  ResolvedTeamMember,
+  ShiftInput,
+  TeamMember,
+  TeamMemberPatch,
+} from "@/lib/team-types";
 import { extractErrorMessage } from "@/lib/errors";
 
 function translateError(e: unknown): string {
@@ -25,19 +33,21 @@ function translateError(e: unknown): string {
 }
 
 type UseTeam = {
-  team: TeamMember[];
+  team: ResolvedTeamMember[];
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
   add: (input: NewTeamMember) => Promise<TeamMember | null>;
-  update: (id: string, patch: TeamPatch) => Promise<void>;
+  update: (id: string, patch: TeamMemberPatch) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  upsertShift: (memberId: string, shift: ShiftInput) => Promise<void>;
+  deleteShift: (memberId: string) => Promise<void>;
 };
 
-export function useTeam(): UseTeam {
+export function useTeam(date: string): UseTeam {
   const { restaurant } = useAuth();
   const restaurantId = restaurant?.id ?? null;
-  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [team, setTeam] = useState<ResolvedTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -51,7 +61,7 @@ export function useTeam(): UseTeam {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listTeam();
+      const rows = await listResolvedTeam(date);
       if (!mounted.current) return;
       setTeam(rows);
     } catch (e) {
@@ -59,7 +69,7 @@ export function useTeam(): UseTeam {
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, date]);
 
   useEffect(() => {
     mounted.current = true;
@@ -69,41 +79,32 @@ export function useTeam(): UseTeam {
     };
   }, [load]);
 
-  const add = useCallback(async (input: NewTeamMember): Promise<TeamMember | null> => {
-    try {
-      const created = await createTeamMember(input);
-      setTeam((prev) => [...prev, created].sort((a, b) => a.start - b.start));
-      return created;
-    } catch (e) {
-      setError(translateError(e));
-      return null;
-    }
-  }, []);
+  const add = useCallback(
+    async (input: NewTeamMember): Promise<TeamMember | null> => {
+      try {
+        const created = await createMember(input);
+        setTeam((prev) =>
+          [...prev, { ...created, shift: null }].sort((a, b) =>
+            a.name.localeCompare(b.name)
+          )
+        );
+        return created;
+      } catch (e) {
+        setError(translateError(e));
+        return null;
+      }
+    },
+    []
+  );
 
   const update = useCallback(
-    async (id: string, patch: TeamPatch) => {
+    async (id: string, patch: TeamMemberPatch) => {
       const before = team;
       setTeam((prev) =>
-        prev.map((m) =>
-          m.id === id
-            ? {
-                ...m,
-                ...(patch.name !== undefined ? { name: patch.name } : {}),
-                ...(patch.role !== undefined ? { role: patch.role } : {}),
-                ...(patch.status !== undefined ? { status: patch.status } : {}),
-                ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
-                ...(patch.hours !== undefined ? { hours: patch.hours } : {}),
-                ...(patch.start !== undefined ? { start: patch.start } : {}),
-                ...(patch.end !== undefined ? { end: patch.end } : {}),
-                ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
-                ...(patch.breakStart !== undefined ? { breakStart: patch.breakStart } : {}),
-                ...(patch.breakEnd !== undefined ? { breakEnd: patch.breakEnd } : {}),
-              }
-            : m
-        )
+        prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
       );
       try {
-        await updateTeamMember(id, patch);
+        await apiUpdateMember(id, patch);
       } catch (e) {
         setTeam(before);
         setError(translateError(e));
@@ -117,7 +118,7 @@ export function useTeam(): UseTeam {
       const before = team;
       setTeam((prev) => prev.filter((m) => m.id !== id));
       try {
-        await deleteTeamMember(id);
+        await apiDeleteMember(id);
       } catch (e) {
         setTeam(before);
         setError(translateError(e));
@@ -126,5 +127,47 @@ export function useTeam(): UseTeam {
     [team]
   );
 
-  return { team, loading, error, reload: load, add, update, remove };
+  const upsertShift = useCallback(
+    async (memberId: string, shift: ShiftInput) => {
+      const before = team;
+      try {
+        const created = await apiUpsertShift(memberId, date, shift);
+        setTeam((prev) =>
+          prev.map((m) => (m.id === memberId ? { ...m, shift: created } : m))
+        );
+      } catch (e) {
+        setTeam(before);
+        setError(translateError(e));
+      }
+    },
+    [team, date]
+  );
+
+  const deleteShift = useCallback(
+    async (memberId: string) => {
+      const before = team;
+      setTeam((prev) =>
+        prev.map((m) => (m.id === memberId ? { ...m, shift: null } : m))
+      );
+      try {
+        await apiDeleteShift(memberId, date);
+      } catch (e) {
+        setTeam(before);
+        setError(translateError(e));
+      }
+    },
+    [team, date]
+  );
+
+  return {
+    team,
+    loading,
+    error,
+    reload: load,
+    add,
+    update,
+    remove,
+    upsertShift,
+    deleteShift,
+  };
 }

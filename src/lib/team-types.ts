@@ -17,48 +17,81 @@ export const STATUS_LABEL: Record<TeamMemberStatus, string> = {
   late: "En retard",
 };
 
+// Identité d'un membre — ne change pas d'un jour à l'autre.
 export type TeamMember = {
   id: string;
   restaurantId: string;
   name: string;
   role: string;
-  status: TeamMemberStatus;
   avatar: string;
-  hours: string;
-  start: number;
-  end: number;
   kind: TeamMemberKind;
-  breakStart: number | null;
-  breakEnd: number | null;
+  // Valeurs par défaut utilisées comme template pour de nouveaux shifts.
+  defaultStart: number;
+  defaultEnd: number;
+  defaultBreakStart: number | null;
+  defaultBreakEnd: number | null;
+  defaultStatus: TeamMemberStatus;
+  defaultHours: string;
   createdAt: string;
   updatedAt: string;
+};
+
+// Un shift = un membre × un jour, avec horaires/pause/statut spécifiques.
+export type TeamShift = {
+  id: string;
+  restaurantId: string;
+  memberId: string;
+  date: string; // ISO yyyy-mm-dd
+  start: number;
+  end: number;
+  breakStart: number | null;
+  breakEnd: number | null;
+  status: TeamMemberStatus;
+  hours: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Membre résolu pour une date donnée.
+// shift = null → le membre n'est pas planifié ce jour.
+export type ResolvedTeamMember = TeamMember & {
+  shift: TeamShift | null;
 };
 
 export type NewTeamMember = {
   name: string;
   role: string;
-  status?: TeamMemberStatus;
   avatar?: string;
-  hours: string;
-  start: number;
-  end: number;
   kind: TeamMemberKind;
-  breakStart?: number | null;
-  breakEnd?: number | null;
+  defaultStart: number;
+  defaultEnd: number;
+  defaultBreakStart?: number | null;
+  defaultBreakEnd?: number | null;
+  defaultStatus?: TeamMemberStatus;
+  defaultHours?: string;
 };
 
-export type TeamPatch = Partial<{
+export type TeamMemberPatch = Partial<{
   name: string;
   role: string;
-  status: TeamMemberStatus;
   avatar: string;
-  hours: string;
+  kind: TeamMemberKind;
+  defaultStart: number;
+  defaultEnd: number;
+  defaultBreakStart: number | null;
+  defaultBreakEnd: number | null;
+  defaultStatus: TeamMemberStatus;
+  defaultHours: string;
+}>;
+
+export type ShiftInput = {
   start: number;
   end: number;
-  kind: TeamMemberKind;
   breakStart: number | null;
   breakEnd: number | null;
-}>;
+  status: TeamMemberStatus;
+  hours: string;
+};
 
 export function avatarFromName(name: string): string {
   const parts = name.trim().split(/\s+/);

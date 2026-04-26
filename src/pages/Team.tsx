@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
-import { Search, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, UserPlus } from "lucide-react";
 import { useTeam } from "@/hooks/useTeam";
-import { KIND_LABEL, type TeamMember, type TeamMemberKind } from "@/lib/team-types";
+import {
+  KIND_LABEL,
+  type ResolvedTeamMember,
+  type TeamMemberKind,
+} from "@/lib/team-types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeamChip } from "@/components/team/TeamChip";
 import { SchedulePlanning } from "@/components/team/SchedulePlanning";
@@ -9,6 +13,26 @@ import { TeamMemberModal } from "@/components/team/TeamMemberModal";
 import { cn } from "@/lib/utils";
 
 type KindFilter = "all" | TeamMemberKind;
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function shiftDate(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateLabel(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 const KIND_FILTERS: Record<KindFilter, string> = {
   all: "Tous les postes",
@@ -19,18 +43,24 @@ const KIND_FILTERS: Record<KindFilter, string> = {
 };
 
 export default function Team() {
-  const { team, loading, error, add, update, remove } = useTeam();
+  const [date, setDate] = useState<string>(todayIso());
+  const { team, loading, error, add, update, remove, upsertShift, deleteShift } =
+    useTeam(date);
   const [kind, setKind] = useState<KindFilter>("all");
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<TeamMember | null>(null);
+  const [editing, setEditing] = useState<ResolvedTeamMember | null>(null);
   const [creating, setCreating] = useState(false);
 
   const stats = useMemo(() => {
-    const service = team.filter((m) => m.status === "service").length;
-    const onBreak = team.filter((m) => m.status === "break").length;
-    const late = team.filter((m) => m.status === "late").length;
-    const totalHours = team.reduce((s, m) => s + (m.end - m.start), 0);
-    return { service, onBreak, late, totalHours, total: team.length };
+    const planned = team.filter((m) => m.shift !== null);
+    const service = planned.filter((m) => m.shift!.status === "service").length;
+    const onBreak = planned.filter((m) => m.shift!.status === "break").length;
+    const late = planned.filter((m) => m.shift!.status === "late").length;
+    const totalHours = planned.reduce(
+      (s, m) => s + (m.shift!.end - m.shift!.start),
+      0
+    );
+    return { service, onBreak, late, totalHours, total: planned.length };
   }, [team]);
 
   const filtered = useMemo(() => {
@@ -59,13 +89,53 @@ export default function Team() {
             Équipe <em className="not-italic italic text-ember-soft font-normal">& planning</em>
           </h2>
         </div>
-        <button
-          className="btn-primary inline-flex items-center gap-2"
-          onClick={() => setCreating(true)}
-        >
-          <UserPlus size={14} />
-          Ajouter un membre
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="icon-btn"
+            title="Jour précédent"
+            onClick={() => setDate(shiftDate(date, -1))}
+            type="button"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <label className="relative inline-flex items-center px-3 py-[7px] bg-bg-1 border border-line rounded-[10px] text-[13px] mono cursor-pointer hover:border-ember/40 transition-colors">
+            <span className="capitalize">{formatDateLabel(date)}</span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                if (e.target.value) setDate(e.target.value);
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              aria-label="Choisir une date"
+            />
+          </label>
+          <button
+            className="icon-btn"
+            title="Jour suivant"
+            onClick={() => setDate(shiftDate(date, 1))}
+            type="button"
+          >
+            <ChevronRight size={14} />
+          </button>
+          {date !== todayIso() && (
+            <button
+              className="text-[11px] text-ink-3 hover:text-ember-soft mono uppercase tracking-[0.08em] px-2"
+              onClick={() => setDate(todayIso())}
+              title="Revenir à aujourd'hui"
+              type="button"
+            >
+              Aujourd&apos;hui
+            </button>
+          )}
+          <button
+            className="btn-primary inline-flex items-center gap-2 ml-2"
+            onClick={() => setCreating(true)}
+          >
+            <UserPlus size={14} />
+            Ajouter un membre
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -155,7 +225,7 @@ export default function Team() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Planning · <span className="text-ember-soft">service du soir</span>
+            Planning · <span className="text-ember-soft capitalize">{formatDateLabel(date)}</span>
           </CardTitle>
           <span className="text-[11px] text-ink-4 mono uppercase tracking-[0.08em]">
             12:00 → 02:00
@@ -164,22 +234,21 @@ export default function Team() {
 
         {loading && team.length === 0 ? (
           <div className="py-16 text-center text-ink-3 text-[13px]">Chargement…</div>
-        ) : filtered.length === 0 ? (
-          <div className="py-12 text-center text-ink-3 text-[13px]">
-            Aucun créneau à afficher.
-          </div>
         ) : (
-          <SchedulePlanning team={filtered} />
+          <SchedulePlanning team={filtered} date={date} />
         )}
       </Card>
 
       <TeamMemberModal
         open={modalOpen}
         member={editing}
+        date={date}
         onClose={closeModal}
         onCreate={add}
         onUpdate={update}
         onDelete={remove}
+        onUpsertShift={upsertShift}
+        onDeleteShift={deleteShift}
       />
     </>
   );

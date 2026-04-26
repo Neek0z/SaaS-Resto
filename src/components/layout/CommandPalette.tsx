@@ -26,7 +26,7 @@ import { listOrders } from "@/lib/api/orders";
 import { fetchMenu } from "@/lib/api/menu-db";
 import { fetchAllCustomers } from "@/lib/api/customers-db";
 import { listReviews } from "@/lib/api/reviews";
-import { listTeam } from "@/lib/api/team";
+import { listTeamMembers } from "@/lib/api/team";
 import { extractErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -337,7 +337,7 @@ export function CommandPalette({
           })),
         }))
         .catch(() => ({ reviews: [] })),
-      listTeam()
+      listTeamMembers()
         .then((rows): Partial<DynamicData> => ({
           team: rows.map((m) => ({
             id: `team.${m.id}`,

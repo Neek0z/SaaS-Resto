@@ -9,10 +9,12 @@ import {
   avatarFromName,
   buildHoursLabel,
   type NewTeamMember,
+  type ResolvedTeamMember,
+  type ShiftInput,
   type TeamMember,
   type TeamMemberKind,
+  type TeamMemberPatch,
   type TeamMemberStatus,
-  type TeamPatch,
 } from "@/lib/team-types";
 import { cn } from "@/lib/utils";
 
@@ -33,63 +35,87 @@ function hourToTime(h: number): string {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
+function formatDateLabel(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
 type Form = {
   name: string;
   role: string;
-  status: TeamMemberStatus;
   kind: TeamMemberKind;
+  avatar: string;
+  scheduled: boolean;
+  status: TeamMemberStatus;
   startStr: string;
   endStr: string;
   hasBreak: boolean;
   breakStartStr: string;
   breakEndStr: string;
-  avatar: string;
 };
 
 function emptyForm(): Form {
   return {
     name: "",
     role: "",
-    status: "service",
     kind: "service",
+    avatar: "",
+    scheduled: true,
+    status: "service",
     startStr: "17:00",
     endStr: "23:00",
     hasBreak: false,
     breakStartStr: "19:00",
     breakEndStr: "19:30",
-    avatar: "",
   };
 }
 
-function fromMember(m: TeamMember): Form {
+function fromMember(m: ResolvedTeamMember): Form {
+  const hasShift = m.shift !== null;
+  const start = m.shift?.start ?? m.defaultStart;
+  const end = m.shift?.end ?? m.defaultEnd;
+  const bs = m.shift?.breakStart ?? m.defaultBreakStart;
+  const be = m.shift?.breakEnd ?? m.defaultBreakEnd;
+  const status = m.shift?.status ?? m.defaultStatus;
   return {
     name: m.name,
     role: m.role,
-    status: m.status,
     kind: m.kind,
-    startStr: hourToTime(m.start),
-    endStr: hourToTime(m.end),
-    hasBreak: m.breakStart !== null && m.breakEnd !== null,
-    breakStartStr: m.breakStart !== null ? hourToTime(m.breakStart) : "19:00",
-    breakEndStr: m.breakEnd !== null ? hourToTime(m.breakEnd) : "19:30",
     avatar: m.avatar,
+    scheduled: hasShift,
+    status,
+    startStr: hourToTime(start),
+    endStr: hourToTime(end),
+    hasBreak: bs !== null && be !== null,
+    breakStartStr: bs !== null ? hourToTime(bs) : "19:00",
+    breakEndStr: be !== null ? hourToTime(be) : "19:30",
   };
 }
 
 export function TeamMemberModal({
   open,
   member,
+  date,
   onClose,
   onCreate,
   onUpdate,
   onDelete,
+  onUpsertShift,
+  onDeleteShift,
 }: {
   open: boolean;
-  member: TeamMember | null;
+  member: ResolvedTeamMember | null;
+  date: string;
   onClose: () => void;
   onCreate?: (input: NewTeamMember) => Promise<TeamMember | null>;
-  onUpdate?: (id: string, patch: TeamPatch) => Promise<void>;
+  onUpdate?: (id: string, patch: TeamMemberPatch) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onUpsertShift?: (memberId: string, shift: ShiftInput) => Promise<void>;
+  onDeleteShift?: (memberId: string) => Promise<void>;
 }) {
   const editing = member !== null;
   const [form, setForm] = useState<Form>(emptyForm);
@@ -110,58 +136,83 @@ export function TeamMemberModal({
   const validation = useMemo<string | null>(() => {
     if (!form.name.trim()) return "Le nom est requis.";
     if (!form.role.trim()) return "Le poste est requis.";
-    if (start === null) return "Heure de début invalide (HH:MM).";
-    if (end === null) return "Heure de fin invalide (HH:MM).";
-    if (end <= start) return "La fin doit être après le début.";
-    if (form.hasBreak) {
-      if (breakStart === null || breakEnd === null)
-        return "Heures de pause invalides (HH:MM).";
-      if (breakEnd <= breakStart) return "La pause doit avoir une fin après le début.";
-      if (breakStart < start || breakEnd > end)
-        return "La pause doit être comprise dans le créneau.";
+    if (form.scheduled) {
+      if (start === null) return "Heure de début invalide (HH:MM).";
+      if (end === null) return "Heure de fin invalide (HH:MM).";
+      if (end <= start) return "La fin doit être après le début.";
+      if (form.hasBreak) {
+        if (breakStart === null || breakEnd === null)
+          return "Heures de pause invalides (HH:MM).";
+        if (breakEnd <= breakStart) return "La pause doit avoir une fin après le début.";
+        if (breakStart < start || breakEnd > end)
+          return "La pause doit être comprise dans le créneau.";
+      }
     }
     return null;
   }, [form, start, end, breakStart, breakEnd]);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  const buildShift = (): ShiftInput => {
+    const s = start as number;
+    const e = end as number;
+    return {
+      start: s,
+      end: e,
+      breakStart: form.hasBreak ? (breakStart as number) : null,
+      breakEnd: form.hasBreak ? (breakEnd as number) : null,
+      status: form.status,
+      hours: buildHoursLabel(s, e),
+    };
+  };
+
   const submit = async () => {
     if (validation || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      const baseHours = buildHoursLabel(start as number, end as number);
-      if (editing && member && onUpdate) {
-        const patch: TeamPatch = {
+      if (editing && member) {
+        const identityPatch: TeamMemberPatch = {
           name: form.name.trim(),
           role: form.role.trim(),
-          status: form.status,
           kind: form.kind,
-          start: start as number,
-          end: end as number,
-          hours: baseHours,
-          breakStart: form.hasBreak ? (breakStart as number) : null,
-          breakEnd: form.hasBreak ? (breakEnd as number) : null,
           avatar: form.avatar.trim() || avatarFromName(form.name),
         };
-        await onUpdate(member.id, patch);
+        if (onUpdate) await onUpdate(member.id, identityPatch);
+
+        if (form.scheduled) {
+          if (onUpsertShift) await onUpsertShift(member.id, buildShift());
+        } else if (member.shift && onDeleteShift) {
+          await onDeleteShift(member.id);
+        }
         onClose();
       } else if (onCreate) {
+        const baseStart = form.scheduled && start !== null ? start : 17;
+        const baseEnd = form.scheduled && end !== null ? end : 23;
+        const baseHours = buildHoursLabel(baseStart, baseEnd);
         const input: NewTeamMember = {
           name: form.name.trim(),
           role: form.role.trim(),
-          status: form.status,
           kind: form.kind,
-          hours: baseHours,
-          start: start as number,
-          end: end as number,
-          breakStart: form.hasBreak ? (breakStart as number) : null,
-          breakEnd: form.hasBreak ? (breakEnd as number) : null,
           avatar: form.avatar.trim() || avatarFromName(form.name),
+          defaultStart: baseStart,
+          defaultEnd: baseEnd,
+          defaultBreakStart:
+            form.scheduled && form.hasBreak ? (breakStart as number) : null,
+          defaultBreakEnd:
+            form.scheduled && form.hasBreak ? (breakEnd as number) : null,
+          defaultStatus: form.status,
+          defaultHours: baseHours,
         };
         const created = await onCreate(input);
-        if (created) onClose();
-        else setError("Création impossible. Vérifiez vos droits.");
+        if (!created) {
+          setError("Création impossible. Vérifiez vos droits.");
+          return;
+        }
+        if (form.scheduled && onUpsertShift) {
+          await onUpsertShift(created.id, buildShift());
+        }
+        onClose();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue.");
@@ -181,6 +232,8 @@ export function TeamMemberModal({
       setSubmitting(false);
     }
   };
+
+  const dateLabel = formatDateLabel(date);
 
   return (
     <Modal
@@ -220,6 +273,10 @@ export function TeamMemberModal({
       }
     >
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <div className="chip-uppercase mb-2">Identité</div>
+        </div>
+
         <div className="col-span-2">
           <label className="chip-uppercase block mb-[6px]">Nom</label>
           <input
@@ -266,73 +323,99 @@ export function TeamMemberModal({
           </div>
         </div>
 
-        <div className="col-span-2">
-          <label className="chip-uppercase block mb-[6px]">Statut</label>
-          <div className="segmented">
-            {TEAM_STATUSES.map((s) => (
-              <button
-                key={s}
-                className={cn(form.status === s && "active")}
-                onClick={() => set("status", s)}
-              >
-                {STATUS_LABEL[s]}
-              </button>
-            ))}
+        <div className="col-span-2 mt-2 pt-3 border-t border-line">
+          <div className="flex items-center justify-between mb-3">
+            <div className="chip-uppercase">
+              Planifié <span className="capitalize text-ember-soft">{dateLabel}</span>
+            </div>
+            <label className="flex items-center gap-2 text-[12px] text-ink-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.scheduled}
+                onChange={(e) => set("scheduled", e.target.checked)}
+              />
+              Planifié ce jour
+            </label>
           </div>
         </div>
 
-        <div>
-          <label className="chip-uppercase block mb-[6px]">Début</label>
-          <input
-            type="time"
-            value={form.startStr}
-            onChange={(e) => set("startStr", e.target.value)}
-            className="w-full bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors mono"
-          />
-        </div>
-
-        <div>
-          <label className="chip-uppercase block mb-[6px]">Fin</label>
-          <input
-            type="time"
-            value={form.endStr}
-            onChange={(e) => set("endStr", e.target.value)}
-            className="w-full bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors mono"
-          />
-        </div>
-
-        <div className="col-span-2">
-          <label className="flex items-center gap-2 text-[12.5px] text-ink-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={form.hasBreak}
-              onChange={(e) => set("hasBreak", e.target.checked)}
-            />
-            Pause planifiée
-          </label>
-        </div>
-
-        {form.hasBreak && (
+        {form.scheduled && (
           <>
+            <div className="col-span-2">
+              <label className="chip-uppercase block mb-[6px]">Statut</label>
+              <div className="segmented">
+                {TEAM_STATUSES.map((s) => (
+                  <button
+                    key={s}
+                    className={cn(form.status === s && "active")}
+                    onClick={() => set("status", s)}
+                  >
+                    {STATUS_LABEL[s]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
-              <label className="chip-uppercase block mb-[6px]">Pause début</label>
+              <label className="chip-uppercase block mb-[6px]">Début</label>
               <input
                 type="time"
-                value={form.breakStartStr}
-                onChange={(e) => set("breakStartStr", e.target.value)}
+                value={form.startStr}
+                onChange={(e) => set("startStr", e.target.value)}
                 className="w-full bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors mono"
               />
             </div>
+
             <div>
-              <label className="chip-uppercase block mb-[6px]">Pause fin</label>
+              <label className="chip-uppercase block mb-[6px]">Fin</label>
               <input
                 type="time"
-                value={form.breakEndStr}
-                onChange={(e) => set("breakEndStr", e.target.value)}
+                value={form.endStr}
+                onChange={(e) => set("endStr", e.target.value)}
                 className="w-full bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors mono"
               />
             </div>
+
+            <div className="col-span-2">
+              <label className="flex items-center gap-2 text-[12.5px] text-ink-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.hasBreak}
+                  onChange={(e) => set("hasBreak", e.target.checked)}
+                />
+                Pause planifiée
+              </label>
+            </div>
+
+            {form.hasBreak && (
+              <>
+                <div>
+                  <label className="chip-uppercase block mb-[6px]">Pause début</label>
+                  <input
+                    type="time"
+                    value={form.breakStartStr}
+                    onChange={(e) => set("breakStartStr", e.target.value)}
+                    className="w-full bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors mono"
+                  />
+                </div>
+                <div>
+                  <label className="chip-uppercase block mb-[6px]">Pause fin</label>
+                  <input
+                    type="time"
+                    value={form.breakEndStr}
+                    onChange={(e) => set("breakEndStr", e.target.value)}
+                    className="w-full bg-bg-2 border border-line rounded-[10px] px-3 py-[9px] text-[13px] text-ink-1 outline-none focus:border-line-2 transition-colors mono"
+                  />
+                </div>
+              </>
+            )}
           </>
+        )}
+
+        {!form.scheduled && (
+          <div className="col-span-2 text-[11.5px] text-ink-3 italic">
+            Le membre ne sera pas planifié ce jour. Son shift existant sera supprimé.
+          </div>
         )}
 
         {(validation || error) && (

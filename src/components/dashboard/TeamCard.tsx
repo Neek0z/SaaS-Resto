@@ -1,14 +1,24 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTeam } from "@/hooks/useTeam";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeamChip } from "@/components/team/TeamChip";
 import { CardLink } from "./CardLink";
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function TeamCard() {
-  const { team, loading, error } = useTeam();
+  const today = useMemo(todayIso, []);
+  const { team, loading, error } = useTeam(today);
 
   const counts = team.reduce(
-    (acc, m) => ({ ...acc, [m.status]: (acc[m.status] ?? 0) + 1 }),
+    (acc, m) => {
+      const s = m.shift?.status;
+      if (!s) return acc;
+      return { ...acc, [s]: (acc[s] ?? 0) + 1 };
+    },
     {} as Record<string, number>
   );
 
