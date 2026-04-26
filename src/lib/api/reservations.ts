@@ -117,3 +117,23 @@ export async function deleteReservation(id: string): Promise<void> {
   const { error } = await supabase.from("reservations").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function countUpcomingByTable(
+  restaurantId: string
+): Promise<Record<string, number>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("table_label, reservation_date, status")
+    .eq("restaurant_id", restaurantId)
+    .gte("reservation_date", todayISO())
+    .neq("status", "cancelled")
+    .neq("status", "noshow");
+  if (error) return {};
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const label = (row as { table_label: string }).table_label;
+    counts[label] = (counts[label] ?? 0) + 1;
+  }
+  return counts;
+}

@@ -59,10 +59,10 @@ export default function DigitalMenu() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-5 pt-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Menu numérique · public</div>
-          <h2 className="display font-medium text-[26px] leading-tight m-0">
+          <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0">
             Menu <em className="not-italic italic text-ember-soft font-normal">à table</em> & QR
           </h2>
         </div>

@@ -7,39 +7,26 @@ import {
   ClipboardList,
   Code,
   LogOut,
+  Menu,
   MessageCircle,
   Plus,
   Search,
   Settings as SettingsIcon,
   Star,
-  Users as UsersIcon,
-  UtensilsCrossed,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PLAN_LABELS } from "@/config/plans";
 import { ROLE_LABELS, ROLE_ORDER, isRoleAtLeast, type Role } from "@/config/roles";
 import { cn, currentServiceLabel, formatLongDateFr } from "@/lib/utils";
+import { useSidebar } from "@/lib/sidebar";
+import { useNotifications, type Notif, type NotifKind } from "@/hooks/useNotifications";
 import { CommandPalette } from "./CommandPalette";
 
 type PopoverId = "notif" | "chat" | "menu" | "rolesim";
 
-type NotifKind = "reservation" | "avis" | "stock" | "equipe" | "commande";
-
-type Notif = {
-  id: string;
-  kind: NotifKind;
-  text: string;
-  ago: string;
-  unread: boolean;
-};
-
-const NOTIFS: Notif[] = [];
-
 const NOTIF_META: Record<NotifKind, { Icon: typeof Bell; tint: string; label: string }> = {
   reservation: { Icon: CalendarDays, tint: "var(--ember-soft)", label: "Réservation" },
   avis: { Icon: Star, tint: "var(--amber)", label: "Avis" },
-  stock: { Icon: UtensilsCrossed, tint: "var(--danger)", label: "Stock" },
-  equipe: { Icon: UsersIcon, tint: "var(--ink-3)", label: "Équipe" },
   commande: { Icon: ClipboardList, tint: "var(--ink-3)", label: "Commande" },
 };
 
@@ -59,9 +46,10 @@ const CONVERSATIONS: Conversation[] = [];
 export function Topbar() {
   const navigate = useNavigate();
   const { user, restaurant, signOut, actualRole, role, roleOverride, setRoleOverride } = useAuth();
+  const { toggleMobile } = useSidebar();
   const [time, setTime] = useState(() => currentTime());
   const [openPopover, setOpenPopover] = useState<PopoverId | null>(null);
-  const [notifs, setNotifs] = useState(NOTIFS);
+  const { items: notifs, unreadCount: unreadNotifs, markRead, markAllRead } = useNotifications();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const containersRef = useRef<Record<PopoverId, HTMLDivElement | null>>({
     notif: null,
@@ -106,10 +94,13 @@ export function Topbar() {
   const dateLabel = formatLongDateFr();
   const serviceLabel = currentServiceLabel();
 
-  const unreadNotifs = notifs.filter((n) => n.unread).length;
   const unreadChats = CONVERSATIONS.reduce((sum, c) => sum + c.unread, 0);
 
-  const markAllRead = () => setNotifs((arr) => arr.map((n) => ({ ...n, unread: false })));
+  const onNotifClick = (n: Notif) => {
+    markRead(n.id);
+    setOpenPopover(null);
+    navigate(n.href, n.state ? { state: n.state } : undefined);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -118,35 +109,54 @@ export function Topbar() {
 
   return (
     <div
-      className="flex items-center gap-4 py-5 sticky top-0 z-10"
+      className="flex items-center gap-2 sm:gap-3 md:gap-4 py-4 md:py-5 sticky top-0 z-10 flex-wrap md:flex-nowrap"
       style={{
         background: "linear-gradient(180deg, var(--bg-0) 60%, transparent)",
       }}
     >
-      <div className="flex-1">
-        <div className="mono text-[12px] text-ink-3 mb-[2px] uppercase tracking-wide">
+      {/* Hamburger mobile uniquement */}
+      <button
+        type="button"
+        onClick={toggleMobile}
+        className="md:hidden icon-btn"
+        aria-label="Ouvrir le menu"
+      >
+        <Menu size={17} />
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <div className="mono text-[10.5px] sm:text-[12px] text-ink-3 mb-[2px] uppercase tracking-wide truncate">
           {dateLabel.toUpperCase()} · {serviceLabel.toUpperCase()}
         </div>
-        <h1 className="display font-medium text-[28px] m-0 leading-tight">
+        <h1 className="display font-medium text-[18px] sm:text-[22px] md:text-[28px] m-0 leading-tight truncate">
           Bonsoir {displayName},{" "}
-          <em className="not-italic italic text-ember-soft font-normal">
+          <em className="not-italic italic text-ember-soft font-normal hidden sm:inline">
             le service commence.
           </em>
         </h1>
       </div>
 
-      <span className="live-dot">Live · {time}</span>
+      <span className="live-dot hidden lg:inline-flex">Live · {time}</span>
 
+      {/* Search : full bouton sur desktop, icône seule sur mobile */}
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
-        className="flex items-center gap-2 bg-bg-1 border border-line rounded-[10px] px-3 py-[7px] w-[240px] text-ink-3 text-[13px] hover:border-line-2 hover:text-ink-2 transition-colors text-left"
+        className="hidden md:flex items-center gap-2 bg-bg-1 border border-line rounded-[10px] px-3 py-[7px] w-[200px] lg:w-[240px] text-ink-3 text-[13px] hover:border-line-2 hover:text-ink-2 transition-colors text-left"
       >
         <Search size={15} />
-        <span className="flex-1 truncate">Rechercher une page, action…</span>
+        <span className="flex-1 truncate">Rechercher…</span>
         <span className="mono text-[10px] text-ink-4 px-[5px] py-[1px] border border-line-2 rounded flex-shrink-0">
           ⌘K
         </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        className="md:hidden icon-btn"
+        aria-label="Rechercher"
+      >
+        <Search size={15} />
       </button>
 
       {actualRole === "developer" && (
@@ -154,7 +164,7 @@ export function Topbar() {
           ref={(el) => {
             containersRef.current.rolesim = el;
           }}
-          className="relative"
+          className="relative hidden lg:block"
         >
           <button
             onClick={() => toggle("rolesim")}
@@ -233,6 +243,7 @@ export function Topbar() {
             notifs={notifs}
             unread={unreadNotifs}
             onMarkAll={markAllRead}
+            onClick={onNotifClick}
             onClose={() => setOpenPopover(null)}
           />
         )}
@@ -243,7 +254,7 @@ export function Topbar() {
         onClick={() => navigate("/reservations", { state: { openNew: true } })}
       >
         <Plus size={14} />
-        Nouvelle résa
+        <span className="hidden sm:inline">Nouvelle résa</span>
       </button>
 
       <div
@@ -323,15 +334,17 @@ function NotifPopover({
   notifs,
   unread,
   onMarkAll,
+  onClick,
   onClose,
 }: {
   notifs: Notif[];
   unread: number;
   onMarkAll: () => void;
+  onClick: (n: Notif) => void;
   onClose: () => void;
 }) {
   return (
-    <div className="absolute right-0 top-[calc(100%+8px)] w-[380px] bg-bg-1 border border-line-2 rounded-[12px] shadow-lg overflow-hidden z-30 animate-in">
+    <div className="absolute right-0 top-[calc(100%+8px)] w-[380px] max-w-[calc(100vw-24px)] bg-bg-1 border border-line-2 rounded-[12px] shadow-lg overflow-hidden z-30 animate-in">
       <div className="flex items-center justify-between px-4 pt-3 pb-[10px] border-b border-line">
         <div className="flex items-baseline gap-2">
           <div className="display font-medium text-[15px]">Notifications</div>
@@ -358,37 +371,39 @@ function NotifPopover({
               const meta = NOTIF_META[n.kind];
               const Icon = meta.Icon;
               return (
-                <li
-                  key={n.id}
-                  className={cn(
-                    "relative flex items-start gap-3 px-4 py-3 border-b border-line last:border-b-0 hover:bg-bg-2 transition-colors",
-                    n.unread && "bg-bg-2/40"
-                  )}
-                >
-                  <span
-                    className="w-8 h-8 rounded-[10px] grid place-items-center flex-shrink-0 mt-[1px]"
-                    style={{
-                      background: "var(--bg-2)",
-                      border: "1px solid var(--line)",
-                      color: meta.tint,
-                    }}
+                <li key={n.id}>
+                  <button
+                    onClick={() => onClick(n)}
+                    className={cn(
+                      "relative w-full text-left flex items-start gap-3 px-4 py-3 border-b border-line last:border-b-0 hover:bg-bg-2 transition-colors",
+                      n.unread && "bg-bg-2/40"
+                    )}
                   >
-                    <Icon size={14} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="chip-uppercase text-[10px] mb-[2px]" style={{ color: meta.tint }}>
-                      {meta.label}
-                    </div>
-                    <div className="text-[12.5px] text-ink-1 leading-snug">{n.text}</div>
-                    <div className="mono text-[10.5px] text-ink-4 mt-1">{n.ago}</div>
-                  </div>
-                  {n.unread && (
                     <span
-                      className="w-[6px] h-[6px] rounded-full mt-[10px] flex-shrink-0"
-                      style={{ background: "var(--ember)" }}
-                      aria-label="Non lu"
-                    />
-                  )}
+                      className="w-8 h-8 rounded-[10px] grid place-items-center flex-shrink-0 mt-[1px]"
+                      style={{
+                        background: "var(--bg-2)",
+                        border: "1px solid var(--line)",
+                        color: meta.tint,
+                      }}
+                    >
+                      <Icon size={14} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="chip-uppercase text-[10px] mb-[2px]" style={{ color: meta.tint }}>
+                        {meta.label}
+                      </div>
+                      <div className="text-[12.5px] text-ink-1 leading-snug">{n.text}</div>
+                      <div className="mono text-[10.5px] text-ink-4 mt-1">{n.ago}</div>
+                    </div>
+                    {n.unread && (
+                      <span
+                        className="w-[6px] h-[6px] rounded-full mt-[10px] flex-shrink-0"
+                        style={{ background: "var(--ember)" }}
+                        aria-label="Non lu"
+                      />
+                    )}
+                  </button>
                 </li>
               );
             })}

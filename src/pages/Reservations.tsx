@@ -37,6 +37,7 @@ export default function Reservations() {
   const { reservations, loading, error, date, setDate, add, update, remove } = useReservations();
   const { restaurant } = useAuth();
   const { tables } = useTables(restaurant?.id ?? null);
+  const activeTables = useMemo(() => tables.filter((t) => t.active), [tables]);
   const [service, setService] = useState<Service>("dinner");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
@@ -109,14 +110,14 @@ export default function Reservations() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-5 pt-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Plan de salle · Live</div>
-          <h2 className="display font-medium text-[26px] leading-tight m-0">
+          <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0">
             Réservations <em className="not-italic italic text-ember-soft font-normal">du jour</em>
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             className="icon-btn"
             title="Jour précédent"
@@ -147,14 +148,14 @@ export default function Reservations() {
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
-        <StatTile className="col-span-2" label="Total résas" value={stats.total} hint={`${stats.covers} couverts`} tone="cream" />
-        <StatTile className="col-span-2" label="À valider" value={stats.pending} hint="Demandes QR" tone="ember-soft" />
-        <StatTile className="col-span-2" label="Installées" value={stats.seated} hint="À table" tone="ok" />
-        <StatTile className="col-span-2" label="Confirmées" value={stats.confirmed} hint="À venir" tone="ember" />
-        <StatTile className="col-span-2" label="No-shows" value={stats.noshow} hint="À recontacter" tone="danger" />
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
+        <StatTile className="col-span-6 sm:col-span-4 lg:col-span-2" label="Total résas" value={stats.total} hint={`${stats.covers} couverts`} tone="cream" />
+        <StatTile className="col-span-6 sm:col-span-4 lg:col-span-2" label="À valider" value={stats.pending} hint="Demandes QR" tone="ember-soft" />
+        <StatTile className="col-span-6 sm:col-span-4 lg:col-span-2" label="Installées" value={stats.seated} hint="À table" tone="ok" />
+        <StatTile className="col-span-6 sm:col-span-4 lg:col-span-2" label="Confirmées" value={stats.confirmed} hint="À venir" tone="ember" />
+        <StatTile className="col-span-6 sm:col-span-4 lg:col-span-2" label="No-shows" value={stats.noshow} hint="À recontacter" tone="danger" />
         <StatTile
-          className="col-span-2"
+          className="col-span-6 sm:col-span-4 lg:col-span-2"
           label="Remplissage"
           value={`${Math.round((stats.covers / 60) * 100)}%`}
           hint="cible 60 cv"
@@ -198,7 +199,7 @@ export default function Reservations() {
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] w-[260px] text-[13px]">
+          <div className="w-full sm:w-[260px] sm:ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] text-[13px]">
             <Search size={14} className="text-ink-3" />
             <input
               className="flex-1 bg-transparent border-0 outline-none text-ink-1 placeholder:text-ink-3"
@@ -215,8 +216,8 @@ export default function Reservations() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
-        <Card className="col-span-8">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
+        <Card className="col-span-12 lg:col-span-8">
           <CardHeader>
             <CardTitle>
               Timeline · <span className="text-ember-soft">{service === "lunch" ? "service midi" : service === "dinner" ? "service du soir" : "journée"}</span>
@@ -260,7 +261,7 @@ export default function Reservations() {
           )}
         </Card>
 
-        <Card className="col-span-4">
+        <Card className="col-span-12 lg:col-span-4">
           <CardHeader>
             <CardTitle>
               Plan · <span className="text-ember-soft">occupation tables</span>
@@ -292,7 +293,7 @@ export default function Reservations() {
         onClose={() => setNewOpen(false)}
         onCreate={handleCreate}
         defaultDate={date}
-        tables={tables}
+        tables={activeTables}
         existingReservations={reservations}
       />
     </>

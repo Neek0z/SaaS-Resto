@@ -16,7 +16,7 @@ export function RevenueChart() {
   const rows = data?.revenue7d ?? [];
 
   return (
-    <Card className="col-span-7 p-[18px]">
+    <Card className="col-span-12 lg:col-span-7 p-[18px]">
       <CardHeader>
         <CardTitle>
           <Link to="/commandes" className="hover:text-ember-soft transition-colors">

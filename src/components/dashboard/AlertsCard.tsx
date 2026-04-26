@@ -73,7 +73,7 @@ export function AlertsCard() {
   }, [restaurantId]);
 
   return (
-    <Card className="col-span-5 p-[18px]">
+    <Card className="col-span-12 lg:col-span-5 p-[18px]">
       <CardHeader>
         <CardTitle>
           <Link to="/reservations" className="hover:text-ember-soft transition-colors">

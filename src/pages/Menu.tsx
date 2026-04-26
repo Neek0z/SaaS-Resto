@@ -180,10 +180,10 @@ export default function Menu() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-5 pt-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Carte · gestion du menu</div>
-          <h2 className="display font-medium text-[26px] leading-tight m-0">
+          <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0">
             Menu <em className="not-italic italic text-ember-soft font-normal">& plats</em>
           </h2>
         </div>
@@ -251,30 +251,30 @@ export default function Menu() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="Plats au menu"
           value={stats.total}
           hint={`${stats.activeCount} disponible${stats.activeCount > 1 ? "s" : ""} · ${stats.withPhoto} avec photo`}
           tone="cream"
         />
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="Catégories"
           value={categories.length}
           hint={`${stats.catsActive} active${stats.catsActive > 1 ? "s" : ""} · ${categories.length - stats.catsActive} masquée${categories.length - stats.catsActive > 1 ? "s" : ""}`}
           tone="ember"
         />
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="Prix moyen"
           value={stats.total > 0 ? eurosCompact.format(stats.avgPrice) : "—"}
           hint="Sur l'ensemble de la carte"
           tone="ok"
         />
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="Indisponibles"
           value={unavailableCount}
           hint={
@@ -305,7 +305,7 @@ export default function Menu() {
             )}
           </button>
 
-          <div className="ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] w-[280px] text-[13px]">
+          <div className="w-full sm:w-[280px] sm:ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] text-[13px]">
             <Search size={14} className="text-ink-3" />
             <input
               className="flex-1 bg-transparent border-0 outline-none text-ink-1 placeholder:text-ink-3"

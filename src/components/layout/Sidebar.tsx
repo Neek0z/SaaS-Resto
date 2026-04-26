@@ -75,7 +75,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="bg-bg-1 border-r border-line flex flex-col gap-1 sticky top-0 h-screen overflow-x-hidden"
+      className="bg-bg-1 border-r border-line flex flex-col gap-1 md:sticky md:top-0 h-screen overflow-x-hidden max-md:!w-[240px] max-md:!p-[22px_16px]"
       style={{
         width: collapsed ? SIDEBAR_WIDTHS.collapsed : SIDEBAR_WIDTHS.expanded,
         padding: collapsed ? "22px 10px" : "22px 16px",
@@ -114,12 +114,12 @@ export function Sidebar() {
           <div className="text-[11px] text-ink-3 mt-[1px]">Salle & Cuisine</div>
         </div>
 
-        {/* Toggle floating button */}
+        {/* Toggle floating button — desktop uniquement */}
         <button
           onClick={toggle}
           aria-label={collapsed ? "Déplier la barre latérale" : "Replier la barre latérale"}
           title={collapsed ? "Déplier" : "Replier"}
-          className="absolute -right-[12px] top-[14px] z-20 w-[24px] h-[24px] rounded-full bg-bg-2 border border-line-2 grid place-items-center text-ink-3 hover:text-ember-soft hover:border-ember/60 hover:shadow-[0_0_0_3px_rgba(232,115,58,0.12)] transition-all"
+          className="hidden md:grid absolute -right-[12px] top-[14px] z-20 w-[24px] h-[24px] rounded-full bg-bg-2 border border-line-2 place-items-center text-ink-3 hover:text-ember-soft hover:border-ember/60 hover:shadow-[0_0_0_3px_rgba(232,115,58,0.12)] transition-all"
           style={{
             transform: collapsed ? "translateX(0) rotate(180deg)" : "translateX(0) rotate(0deg)",
             transition: `transform 280ms ${EASE}, color 200ms, border-color 200ms, box-shadow 200ms`,

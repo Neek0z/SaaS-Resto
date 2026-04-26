@@ -66,11 +66,11 @@ export default function EmployeeView() {
   return (
     <div className="min-h-screen bg-bg-0 text-ink-1">
       <header
-        className="sticky top-0 z-10 flex items-center gap-4 px-6 py-4 border-b border-line"
+        className="sticky top-0 z-10 flex items-center gap-2 sm:gap-4 px-3 sm:px-6 py-3 sm:py-4 border-b border-line"
         style={{ background: "linear-gradient(180deg, var(--bg-0) 80%, transparent)" }}
       >
         <div
-          className="w-9 h-9 rounded-[10px] grid place-items-center text-cream font-bold display"
+          className="w-9 h-9 rounded-[10px] grid place-items-center text-cream font-bold display shrink-0"
           style={{
             background:
               "radial-gradient(circle at 30% 30%, var(--ember) 0%, var(--ember-deep) 60%, #5c2a0e 100%)",
@@ -79,33 +79,33 @@ export default function EmployeeView() {
           S
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] mono uppercase tracking-[0.12em] text-ink-4">
+          <div className="text-[10px] sm:text-[11px] mono uppercase tracking-[0.12em] text-ink-4">
             Vue service · employé
           </div>
-          <div className="display font-medium text-[18px] truncate">{restoName}</div>
+          <div className="display font-medium text-[15px] sm:text-[18px] truncate">{restoName}</div>
         </div>
         <button
-          className="btn-ghost inline-flex items-center gap-2"
+          className="btn-ghost inline-flex items-center gap-2 shrink-0"
           onClick={() => void refresh()}
           disabled={loading}
         >
           <RefreshCw size={13} className={cn(loading && "animate-spin")} />
-          Actualiser
+          <span className="hidden sm:inline">Actualiser</span>
         </button>
-        <div className="flex items-center gap-2 pl-3 border-l border-line">
-          <span className="avatar-circle w-8 h-8 text-[12px]">{userInitials}</span>
+        <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-line shrink-0">
+          <span className="avatar-circle w-8 h-8 text-[12px] hidden sm:grid">{userInitials}</span>
           <button
             className="btn-ghost inline-flex items-center gap-2"
             onClick={handleSignOut}
             title="Se déconnecter"
           >
             <LogOut size={13} />
-            Déconnexion
+            <span className="hidden sm:inline">Déconnexion</span>
           </button>
         </div>
       </header>
 
-      <main className="grid grid-cols-1 lg:grid-cols-2 gap-5 p-6">
+      <main className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 p-3 sm:p-6">
         <section>
           <Card>
             <CardHeader>

@@ -7,16 +7,22 @@ function readInitial(): boolean {
   return window.localStorage.getItem(STORAGE_KEY) === "1";
 }
 
-const listeners = new Set<(c: boolean) => void>();
+const collapsedListeners = new Set<(c: boolean) => void>();
+const mobileListeners = new Set<(c: boolean) => void>();
+let mobileOpenState = false;
 
 export function useSidebar() {
   const [collapsed, setCollapsedState] = useState<boolean>(readInitial);
+  const [mobileOpen, setMobileOpenState] = useState<boolean>(mobileOpenState);
 
   useEffect(() => {
-    const fn = (c: boolean) => setCollapsedState(c);
-    listeners.add(fn);
+    const fnC = (c: boolean) => setCollapsedState(c);
+    const fnM = (c: boolean) => setMobileOpenState(c);
+    collapsedListeners.add(fnC);
+    mobileListeners.add(fnM);
     return () => {
-      listeners.delete(fn);
+      collapsedListeners.delete(fnC);
+      mobileListeners.delete(fnM);
     };
   }, []);
 
@@ -24,12 +30,19 @@ export function useSidebar() {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, c ? "1" : "0");
     }
-    listeners.forEach((l) => l(c));
+    collapsedListeners.forEach((l) => l(c));
   };
 
   const toggle = () => setCollapsed(!collapsed);
 
-  return { collapsed, setCollapsed, toggle };
+  const setMobileOpen = (c: boolean) => {
+    mobileOpenState = c;
+    mobileListeners.forEach((l) => l(c));
+  };
+
+  const toggleMobile = () => setMobileOpen(!mobileOpen);
+
+  return { collapsed, setCollapsed, toggle, mobileOpen, setMobileOpen, toggleMobile };
 }
 
 export const SIDEBAR_WIDTHS = {

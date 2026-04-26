@@ -83,14 +83,14 @@ export default function Orders() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-5 pt-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Salle & cuisine · Temps réel</div>
-          <h2 className="display font-medium text-[26px] leading-tight m-0">
+          <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0">
             Commandes <em className="not-italic italic text-ember-soft font-normal">en service</em>
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             className="btn-ghost inline-flex items-center gap-2"
             onClick={() => void reload()}
@@ -112,30 +112,30 @@ export default function Orders() {
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="En cours"
           value={(stats.byStatus.preparing ?? 0) + (stats.byStatus.pending ?? 0)}
           hint={`${stats.byStatus.pending ?? 0} à préparer · ${stats.byStatus.preparing ?? 0} en cuisine`}
           tone="ember"
         />
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="Servies"
           value={stats.byStatus.served ?? 0}
           hint="Terminées ce service"
           tone="ok"
         />
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="Urgentes"
           value={stats.urgent}
           hint="Priorité haute en attente"
           tone="danger"
         />
         <StatTile
-          className="col-span-3"
+          className="col-span-6 lg:col-span-3"
           label="CA du service"
           value={`${formatEuros(stats.revenue)} €`}
           hint="Hors annulations"
@@ -169,7 +169,7 @@ export default function Orders() {
             ]}
           />
 
-          <div className="ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] w-[260px] text-[13px]">
+          <div className="w-full sm:w-[260px] sm:ml-auto flex items-center gap-2 bg-bg-2 border border-line rounded-[10px] px-3 py-[7px] text-[13px]">
             <Search size={14} className="text-ink-3" />
             <input
               className="flex-1 bg-transparent border-0 outline-none text-ink-1 placeholder:text-ink-3"

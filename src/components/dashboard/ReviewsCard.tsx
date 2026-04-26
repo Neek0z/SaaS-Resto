@@ -12,7 +12,7 @@ export function ReviewsCard() {
   const sources = useMemo(() => aggregateBySource(reviews), [reviews]);
 
   return (
-    <Card className="col-span-5 p-[18px]">
+    <Card className="col-span-12 lg:col-span-5 p-[18px]">
       <CardHeader>
         <CardTitle>
           <Link to="/avis" className="hover:text-ember-soft transition-colors">

@@ -73,10 +73,10 @@ export default function Reviews() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-5 pt-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Réputation · Multi-plateformes</div>
-          <h2 className="display font-medium text-[26px] leading-tight m-0">
+          <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0">
             Avis <em className="not-italic italic text-ember-soft font-normal">clients</em>
           </h2>
         </div>

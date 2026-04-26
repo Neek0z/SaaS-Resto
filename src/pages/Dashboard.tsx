@@ -15,26 +15,26 @@ export default function Dashboard() {
     <DashboardProvider>
       <KpiStrip />
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <RevenueChart />
         <CoversChart />
       </div>
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <EventsTodayCard />
       </div>
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <OrdersCard />
         <ReservationsCard />
       </div>
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <MenuCard />
         <ReviewsCard />
       </div>
 
-      <div className="grid grid-cols-12 gap-4 mb-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <TeamCard />
         <AlertsCard />
       </div>

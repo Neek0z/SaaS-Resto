@@ -16,10 +16,25 @@ export type TableEntry = {
   number: string;
   capacity: number;
   zone: TableZone;
+  active: boolean;
+  displayOrder: number;
 };
 
 function toEntry(t: RestaurantTable): TableEntry {
-  return { id: t.id, number: t.label, capacity: t.capacity, zone: t.zone };
+  return {
+    id: t.id,
+    number: t.label,
+    capacity: t.capacity,
+    zone: t.zone,
+    active: t.active,
+    displayOrder: t.displayOrder,
+  };
+}
+
+function sortEntries(list: TableEntry[]): TableEntry[] {
+  return [...list].sort(
+    (a, b) => a.displayOrder - b.displayOrder || a.number.localeCompare(b.number)
+  );
 }
 
 export function useTables(restaurantId: string | null) {
@@ -64,7 +79,7 @@ export function useTables(restaurantId: string | null) {
       }
       try {
         const created = await createTable({ label: trimmed, capacity, zone });
-        setTables((prev) => [...prev, toEntry(created)].sort((a, b) => a.number.localeCompare(b.number)));
+        setTables((prev) => sortEntries([...prev, toEntry(created)]));
       } catch (e) {
         setError(extractErrorMessage(e));
       }
@@ -89,23 +104,73 @@ export function useTables(restaurantId: string | null) {
   const editTable = useCallback(
     async (
       id: string,
-      patch: { label?: string; capacity?: number; zone?: TableZone }
+      patch: {
+        label?: string;
+        capacity?: number;
+        zone?: TableZone;
+        active?: boolean;
+        displayOrder?: number;
+      }
     ) => {
       const before = tables;
       setTables((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                ...(patch.label !== undefined ? { number: patch.label } : {}),
-                ...(patch.capacity !== undefined ? { capacity: patch.capacity } : {}),
-                ...(patch.zone !== undefined ? { zone: patch.zone } : {}),
-              }
-            : t
+        sortEntries(
+          prev.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  ...(patch.label !== undefined ? { number: patch.label } : {}),
+                  ...(patch.capacity !== undefined ? { capacity: patch.capacity } : {}),
+                  ...(patch.zone !== undefined ? { zone: patch.zone } : {}),
+                  ...(patch.active !== undefined ? { active: patch.active } : {}),
+                  ...(patch.displayOrder !== undefined
+                    ? { displayOrder: patch.displayOrder }
+                    : {}),
+                }
+              : t
+          )
         )
       );
       try {
         await updateTable(id, patch);
+      } catch (e) {
+        setTables(before);
+        setError(extractErrorMessage(e));
+      }
+    },
+    [tables]
+  );
+
+  const moveTable = useCallback(
+    async (id: string, direction: "up" | "down") => {
+      const idx = tables.findIndex((t) => t.id === id);
+      if (idx === -1) return;
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= tables.length) return;
+      const a = tables[idx];
+      const b = tables[swapIdx];
+      const aOrder = a.displayOrder;
+      const bOrder = b.displayOrder;
+      // If both share the same displayOrder, normalize.
+      const newAOrder = aOrder === bOrder ? swapIdx : bOrder;
+      const newBOrder = aOrder === bOrder ? idx : aOrder;
+      const before = tables;
+      setTables((prev) =>
+        sortEntries(
+          prev.map((t) =>
+            t.id === a.id
+              ? { ...t, displayOrder: newAOrder }
+              : t.id === b.id
+              ? { ...t, displayOrder: newBOrder }
+              : t
+          )
+        )
+      );
+      try {
+        await Promise.all([
+          updateTable(a.id, { displayOrder: newAOrder }),
+          updateTable(b.id, { displayOrder: newBOrder }),
+        ]);
       } catch (e) {
         setTables(before);
         setError(extractErrorMessage(e));
@@ -121,6 +186,7 @@ export function useTables(restaurantId: string | null) {
     addTable,
     removeTable,
     editTable,
+    moveTable,
     reload,
     clearError: () => setError(null),
   };

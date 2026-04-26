@@ -51,11 +51,11 @@ export function KpiStrip() {
 
   if (!data || loading) {
     return (
-      <div className="grid grid-cols-12 gap-4 mb-4">
-        <div className="kpi hero col-span-4 animate-pulse h-[160px]" />
-        <div className="kpi col-span-3 animate-pulse h-[160px]" />
-        <div className="kpi col-span-2 animate-pulse h-[160px]" />
-        <div className="kpi col-span-3 animate-pulse h-[160px]" />
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
+        <div className="kpi hero col-span-12 lg:col-span-4 animate-pulse h-[160px]" />
+        <div className="kpi col-span-12 sm:col-span-6 lg:col-span-3 animate-pulse h-[160px]" />
+        <div className="kpi col-span-12 sm:col-span-6 lg:col-span-2 animate-pulse h-[160px]" />
+        <div className="kpi col-span-12 sm:col-span-12 lg:col-span-3 animate-pulse h-[160px]" />
       </div>
     );
   }
@@ -75,9 +75,9 @@ export function KpiStrip() {
   const placesLeft = Math.max(0, k.covers.goal - k.covers.value);
 
   return (
-    <div className="grid grid-cols-12 gap-4 mb-4">
+    <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
       {/* Hero revenue */}
-      <KpiLink to="/commandes" className="kpi hero col-span-4">
+      <KpiLink to="/commandes" className="kpi hero col-span-12 lg:col-span-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
@@ -112,7 +112,7 @@ export function KpiStrip() {
       </KpiLink>
 
       {/* Couverts */}
-      <KpiLink to="/reservations" className="kpi col-span-3">
+      <KpiLink to="/reservations" className="kpi col-span-12 sm:col-span-6 lg:col-span-3">
         <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
           Couverts · ce soir
         </div>
@@ -142,7 +142,7 @@ export function KpiStrip() {
       <RoleGate
         resource="action.view_margins"
         fallback={
-          <div className="kpi col-span-2 flex flex-col justify-center items-start gap-2 opacity-70">
+          <div className="kpi col-span-12 sm:col-span-6 lg:col-span-2 flex flex-col justify-center items-start gap-2 opacity-70">
             <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold flex items-center gap-[6px]">
               <Lock size={11} />
               Panier moyen
@@ -153,7 +153,7 @@ export function KpiStrip() {
           </div>
         }
       >
-        <KpiLink to="/commandes" className="kpi col-span-2">
+        <KpiLink to="/commandes" className="kpi col-span-12 sm:col-span-6 lg:col-span-2">
           <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
             Panier moyen
           </div>
@@ -169,7 +169,7 @@ export function KpiStrip() {
       </RoleGate>
 
       {/* Occupation */}
-      <KpiLink to="/reservations" className="kpi col-span-3">
+      <KpiLink to="/reservations" className="kpi col-span-12 sm:col-span-12 lg:col-span-3">
         <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-semibold">
           Taux d'occupation
         </div>

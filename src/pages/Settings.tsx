@@ -26,7 +26,9 @@ import {
   Lock,
   RefreshCw,
   ShieldCheck,
+  LayoutGrid,
 } from "lucide-react";
+import { TablesForm } from "@/components/settings/TablesForm";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@/lib/supabase-env";
@@ -78,6 +80,7 @@ type Tab =
   | "resto"
   | "apparence"
   | "horaires"
+  | "tables"
   | "paiement"
   | "abonnement"
   | "equipe"
@@ -93,6 +96,7 @@ const ALL_TABS: TabDef[] = [
   { id: "resto", label: "Restaurant", icon: Building2 },
   { id: "apparence", label: "Apparence", icon: Palette },
   { id: "horaires", label: "Horaires", icon: Globe },
+  { id: "tables", label: "Tables", icon: LayoutGrid },
   { id: "paiement", label: "Paiement", icon: CreditCard },
   { id: "abonnement", label: "Abonnement", icon: Sparkles, minRole: "owner" },
   { id: "equipe", label: "Équipe", icon: UsersIcon, minRole: "owner" },
@@ -112,7 +116,7 @@ export default function Settings() {
     return (
       <div className="pt-6 max-w-[640px]">
         <div className="chip-uppercase mb-1">Configuration</div>
-        <h2 className="display font-medium text-[26px] leading-tight m-0 mb-4">
+        <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0 mb-4">
           Paramètres
         </h2>
         <RoleLockedCard />
@@ -148,10 +152,10 @@ export default function Settings() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-5 pt-2">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pt-2">
         <div>
           <div className="chip-uppercase mb-1">Configuration · Maison Sévère</div>
-          <h2 className="display font-medium text-[26px] leading-tight m-0">
+          <h2 className="display font-medium text-[22px] sm:text-[26px] leading-tight m-0">
             Paramètres <em className="not-italic italic text-ember-soft font-normal">de l'établissement</em>
           </h2>
         </div>
@@ -198,6 +202,7 @@ export default function Settings() {
           {tab === "resto" && <RestoForm />}
           {tab === "apparence" && <AppearanceForm />}
           {tab === "horaires" && <HoursForm />}
+          {tab === "tables" && <TablesForm />}
           {tab === "paiement" && <PaymentForm />}
           {tab === "abonnement" && (
             <RoleGate requiredRole="owner" fallback={<RoleLockedCard />}>
