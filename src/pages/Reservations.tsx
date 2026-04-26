@@ -19,9 +19,21 @@ const LUNCH_HOURS = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"];
 const DINNER_HOURS = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00"];
 
 function shiftDate(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function todayIso(): string {
+  const d = new Date();
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 function formatDateLabel(iso: string): string {
@@ -123,10 +135,21 @@ export default function Reservations() {
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {date !== todayIso() && (
+            <button
+              className="text-[11px] text-ink-3 hover:text-ember-soft mono uppercase tracking-[0.08em] px-2"
+              onClick={() => setDate(todayIso())}
+              title="Revenir à aujourd'hui"
+              type="button"
+            >
+              Aujourd&apos;hui
+            </button>
+          )}
           <button
             className="icon-btn"
             title="Jour précédent"
             onClick={() => setDate(shiftDate(date, -1))}
+            type="button"
           >
             <ChevronLeft size={14} />
           </button>
@@ -146,19 +169,10 @@ export default function Reservations() {
             className="icon-btn"
             title="Jour suivant"
             onClick={() => setDate(shiftDate(date, 1))}
+            type="button"
           >
             <ChevronRight size={14} />
           </button>
-          {date !== new Date().toISOString().slice(0, 10) && (
-            <button
-              className="text-[11px] text-ink-3 hover:text-ember-soft mono uppercase tracking-[0.08em] px-2"
-              onClick={() => setDate(new Date().toISOString().slice(0, 10))}
-              title="Revenir à aujourd'hui"
-              type="button"
-            >
-              Aujourd&apos;hui
-            </button>
-          )}
           <button className="btn-primary ml-2" onClick={() => setNewOpen(true)}>
             <CalendarPlus size={13} />
             Nouvelle résa

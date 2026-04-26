@@ -15,13 +15,21 @@ import { cn } from "@/lib/utils";
 type KindFilter = "all" | TeamMemberKind;
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 function shiftDate(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 function formatDateLabel(iso: string): string {
@@ -90,6 +98,16 @@ export default function Team() {
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {date !== todayIso() && (
+            <button
+              className="text-[11px] text-ink-3 hover:text-ember-soft mono uppercase tracking-[0.08em] px-2"
+              onClick={() => setDate(todayIso())}
+              title="Revenir à aujourd'hui"
+              type="button"
+            >
+              Aujourd&apos;hui
+            </button>
+          )}
           <button
             className="icon-btn"
             title="Jour précédent"
@@ -118,16 +136,6 @@ export default function Team() {
           >
             <ChevronRight size={14} />
           </button>
-          {date !== todayIso() && (
-            <button
-              className="text-[11px] text-ink-3 hover:text-ember-soft mono uppercase tracking-[0.08em] px-2"
-              onClick={() => setDate(todayIso())}
-              title="Revenir à aujourd'hui"
-              type="button"
-            >
-              Aujourd&apos;hui
-            </button>
-          )}
           <button
             className="btn-primary inline-flex items-center gap-2 ml-2"
             onClick={() => setCreating(true)}
