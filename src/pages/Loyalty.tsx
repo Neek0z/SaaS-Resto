@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowDownUp,
+  Download,
   Gift,
   Pencil,
   Plus,
@@ -24,8 +25,10 @@ import {
 import { CustomerDrawer } from "@/components/loyalty/CustomerDrawer";
 import { NewCustomerModal } from "@/components/loyalty/NewCustomerModal";
 import { RewardDrawer } from "@/components/loyalty/RewardDrawer";
+import { LoyaltyEmailsPanel } from "@/components/loyalty/LoyaltyEmailsPanel";
 import { ConfirmDelete } from "@/components/menu/ConfirmDelete";
 import { cn } from "@/lib/utils";
+import { downloadCsv, todayStamp, toCsv } from "@/lib/csv";
 
 type Tab = "clients" | "rewards" | "config";
 type TierFilter = "all" | LoyaltyTier;
@@ -239,6 +242,32 @@ function ClientsTab({
     }
   };
 
+  const exportCsv = () => {
+    const rows = filtered.map((c) => ({
+      name: c.name,
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      tier: TIER_LABEL[c.tier],
+      points: c.points,
+      total_spent: c.totalSpent,
+      visit_count: c.visitCount,
+      last_visit: c.lastVisit ? c.lastVisit.slice(0, 10) : "",
+      created_at: c.createdAt.slice(0, 10),
+    }));
+    const csv = toCsv(rows, [
+      { key: "name", header: "Nom" },
+      { key: "email", header: "Email" },
+      { key: "phone", header: "Téléphone" },
+      { key: "tier", header: "Palier" },
+      { key: "points", header: "Points" },
+      { key: "total_spent", header: "Dépense totale (€)" },
+      { key: "visit_count", header: "Visites" },
+      { key: "last_visit", header: "Dernière visite" },
+      { key: "created_at", header: "Inscrit le" },
+    ]);
+    downloadCsv(`clients-fidelite-${todayStamp()}.csv`, csv);
+  };
+
   return (
     <>
       {/* KPIs */}
@@ -283,7 +312,7 @@ function ClientsTab({
             >
               Tous paliers
             </button>
-            {(["bronze", "silver", "gold"] as LoyaltyTier[]).map((t) => (
+            {(["bronze", "silver", "gold", "platine"] as LoyaltyTier[]).map((t) => (
               <button
                 key={t}
                 className={cn(tier === t && "active")}
@@ -311,6 +340,17 @@ function ClientsTab({
               </button>
             )}
           </div>
+
+          <button
+            className="btn-ghost inline-flex items-center gap-2"
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+            title="Exporter la liste filtrée au format CSV"
+            type="button"
+          >
+            <Download size={13} />
+            Exporter CSV
+          </button>
 
           <button
             className="btn-primary inline-flex items-center gap-2"
@@ -754,6 +794,8 @@ function ConfigTab({
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>
+
+      <LoyaltyEmailsPanel />
     </div>
   );
 }

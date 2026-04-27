@@ -127,10 +127,22 @@ export default function PublicLoyalty() {
               ? `Vous êtes maintenant inscrit·e au programme fidélité de ${r.name}. Vous gagnerez des points à chaque visite.`
               : `Vos préférences ont été mises à jour pour ${r.name}.`}
           </p>
-          <Link to={`/chez/${r.slug}`} className="btn-primary inline-flex items-center gap-2">
-            <ArrowLeft size={13} />
-            Retour à l&apos;accueil
-          </Link>
+          <div className="flex flex-col items-center gap-3">
+            <Link
+              to={`/fidelite/${r.slug}/compte`}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              <Heart size={13} />
+              Accéder à mon compte
+            </Link>
+            <Link
+              to={`/chez/${r.slug}`}
+              className="text-[12px] text-ink-3 hover:text-ink-1 inline-flex items-center gap-1"
+            >
+              <ArrowLeft size={12} />
+              Retour à l&apos;accueil
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -232,6 +244,16 @@ export default function PublicLoyalty() {
           <Heart size={14} />
           {submitting ? "Inscription en cours…" : "Rejoindre le programme"}
         </button>
+
+        <div className="text-center text-[12px] text-ink-3 mt-1">
+          Déjà inscrit·e ?{" "}
+          <Link
+            to={`/fidelite/${r.slug}/compte`}
+            className="text-ember-soft hover:underline"
+          >
+            Accéder à mon compte
+          </Link>
+        </div>
 
         <p className="text-[11px] text-ink-4 text-center mt-2">
           Vos informations restent strictement confidentielles et ne sont jamais revendues.

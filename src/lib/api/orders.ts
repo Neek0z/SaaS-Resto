@@ -22,6 +22,7 @@ type Row = {
   priority: OrderPriority;
   pickup_time: string | null;
   note: string | null;
+  loyalty_customer_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -41,6 +42,7 @@ function mapRow(r: Row): Order {
     priority: r.priority,
     pickup: r.pickup_time ?? "",
     note: r.note ?? "",
+    loyaltyCustomerId: r.loyalty_customer_id ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -79,6 +81,7 @@ export async function createOrder(input: NewOrder): Promise<Order> {
     priority: input.priority ?? "normal",
     pickup_time: input.pickup ?? null,
     note: input.note ?? null,
+    loyalty_customer_id: input.loyaltyCustomerId ?? null,
   };
   const { data, error } = await supabase
     .from("orders")
@@ -103,6 +106,8 @@ export async function updateOrder(id: string, patch: OrderPatch): Promise<Order>
   if (patch.priority !== undefined) dbPatch.priority = patch.priority;
   if (patch.pickup !== undefined) dbPatch.pickup_time = patch.pickup || null;
   if (patch.note !== undefined) dbPatch.note = patch.note;
+  if (patch.loyaltyCustomerId !== undefined)
+    dbPatch.loyalty_customer_id = patch.loyaltyCustomerId;
 
   const { data, error } = await supabase
     .from("orders")

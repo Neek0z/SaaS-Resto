@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ClipboardList, RefreshCw, Search } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import { useAuth } from "@/contexts/AuthContext";
+import { processLoyaltyEmails } from "@/lib/api/loyalty-emails";
 import type { OrderChannel, OrderStatus, NewOrder } from "@/lib/order-types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderRow, channelLabel, statusLabel } from "@/components/orders/OrderRow";
@@ -13,7 +15,8 @@ type ChannelFilter = "all" | OrderChannel;
 type StatusFilter = "all" | OrderStatus;
 
 export default function Orders() {
-  const { orders, loading, error, reload, add, setStatus: setOrderStatus, remove } = useOrders();
+  const { orders, loading, error, reload, add, update, setStatus: setOrderStatus, remove } = useOrders();
+  const { restaurant } = useAuth();
   const [channel, setChannel] = useState<ChannelFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
@@ -22,7 +25,18 @@ export default function Orders() {
   const selected = orders.find((o) => o.id === selectedId) ?? null;
 
   const handleStatusChange = (id: string, next: OrderStatus) => {
-    void setOrderStatus(id, next);
+    const order = orders.find((o) => o.id === id);
+    void setOrderStatus(id, next).then(() => {
+      // Si une commande passe à "servie" avec un client fidélité,
+      // l'auto-crédit serveur peut déclencher un palier → drain best-effort.
+      if (next === "served" && order?.loyaltyCustomerId && restaurant?.id) {
+        void processLoyaltyEmails(restaurant.id).catch(() => {});
+      }
+    });
+  };
+
+  const handleLoyaltyChange = (id: string, loyaltyCustomerId: string | null) => {
+    void update(id, { loyaltyCustomerId });
   };
 
   const handleCreate = async (input: NewOrder) => {
@@ -232,6 +246,7 @@ export default function Orders() {
         order={selected}
         onClose={() => setSelectedId(null)}
         onStatusChange={handleStatusChange}
+        onLoyaltyChange={handleLoyaltyChange}
         onDelete={handleDelete}
       />
       <NewOrderModal

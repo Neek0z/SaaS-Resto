@@ -27,11 +27,13 @@ const Login = lazy(() => import("@/pages/auth/Login"));
 const Register = lazy(() => import("@/pages/auth/Register"));
 const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
+const AuthCallback = lazy(() => import("@/pages/auth/AuthCallback"));
 
 const PublicHub = lazy(() => import("@/pages/PublicHub"));
 const PublicMenu = lazy(() => import("@/pages/PublicMenu"));
 const PublicReservation = lazy(() => import("@/pages/PublicReservation"));
 const PublicLoyalty = lazy(() => import("@/pages/PublicLoyalty"));
+const MyLoyaltyAccount = lazy(() => import("@/pages/MyLoyaltyAccount"));
 
 function RouteFallback() {
   return (
@@ -62,10 +64,12 @@ export default function App() {
             <Route path="/carte/:slug" element={<PublicMenu />} />
             <Route path="/reserver/:slug" element={<PublicReservation />} />
             <Route path="/fidelite/:slug" element={<PublicLoyalty />} />
+            <Route path="/fidelite/:slug/compte" element={<MyLoyaltyAccount />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
             <Route
               path="/service"

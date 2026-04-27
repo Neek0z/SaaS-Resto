@@ -16,6 +16,7 @@ export type Order = {
   priority: OrderPriority;
   pickup: string;
   note: string;
+  loyaltyCustomerId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -32,6 +33,7 @@ export type NewOrder = {
   priority?: OrderPriority;
   pickup?: string;
   note?: string;
+  loyaltyCustomerId?: string | null;
 };
 
 export type OrderPatch = Partial<

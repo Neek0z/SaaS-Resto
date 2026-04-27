@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, ClipboardList } from "lucide-react";
 import type { NewOrder, OrderChannel, OrderPriority } from "@/lib/order-types";
 import { Modal } from "@/components/ui/modal";
+import { LoyaltyCustomerPicker } from "@/components/loyalty/LoyaltyCustomerPicker";
 
 type ItemDraft = { name: string; price: number };
 
@@ -28,6 +29,7 @@ export function NewOrderModal({
   const [pickup, setPickup] = useState("");
   const [note, setNote] = useState("");
   const [items, setItems] = useState<ItemDraft[]>([{ name: "", price: 0 }]);
+  const [loyaltyCustomerId, setLoyaltyCustomerId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
@@ -39,6 +41,7 @@ export function NewOrderModal({
     setPickup("");
     setNote("");
     setItems([{ name: "", price: 0 }]);
+    setLoyaltyCustomerId(null);
   };
 
   const total = items.reduce((s, i) => s + (Number(i.price) || 0), 0);
@@ -67,6 +70,7 @@ export function NewOrderModal({
         pickup: pickup.trim(),
         note: note.trim(),
         status: "pending",
+        loyaltyCustomerId,
       });
       reset();
     } finally {
@@ -239,6 +243,13 @@ export function NewOrderModal({
               Ajouter un article
             </button>
           </div>
+        </div>
+
+        <div className="col-span-2">
+          <LoyaltyCustomerPicker
+            value={loyaltyCustomerId}
+            onChange={(id) => setLoyaltyCustomerId(id)}
+          />
         </div>
 
         <div className="col-span-2">

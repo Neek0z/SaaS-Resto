@@ -1,4 +1,4 @@
-export type LoyaltyTier = "bronze" | "silver" | "gold";
+export type LoyaltyTier = "bronze" | "silver" | "gold" | "platine";
 
 export type LoyaltyCustomer = {
   id: string;
@@ -52,15 +52,20 @@ export const TIER_LABEL: Record<LoyaltyTier, string> = {
   bronze: "Bronze",
   silver: "Argent",
   gold: "Or",
+  platine: "Platine",
 };
 
 export const TIER_COLOR: Record<LoyaltyTier, string> = {
   bronze: "#8a6a41",
   silver: "#b8b3a8",
   gold: "#d29528",
+  platine: "#9bb0d4",
 };
 
 export function computeTier(points: number, config: LoyaltyConfig): LoyaltyTier {
+  // Note : le palier Platine n'est pas auto-attribué (pas de seuil
+  // dans loyalty_config). Il peut être assigné manuellement par
+  // le staff via le drawer client. computeTier reste 3-paliers.
   if (points >= config.thresholdGold) return "gold";
   if (points >= config.thresholdSilver) return "silver";
   return "bronze";

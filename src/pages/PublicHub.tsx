@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { CalendarCheck, ChevronRight, Heart, MapPin, UtensilsCrossed } from "lucide-react";
+import { CalendarCheck, ChevronRight, Heart, MapPin, Star, UtensilsCrossed } from "lucide-react";
 import {
   fetchPublicReservationInfo,
   type PublicResaInfo,
@@ -149,6 +149,13 @@ export default function PublicHub() {
           icon={<Heart size={22} />}
           title="Programme fidélité"
           subtitle="Cumulez des points à chaque visite"
+          accent="cream"
+        />
+        <HubTile
+          to={`/fidelite/${r.slug}/compte`}
+          icon={<Star size={22} />}
+          title="Mon compte fidélité"
+          subtitle="Voir mes points et mes récompenses"
           accent="cream"
         />
       </section>

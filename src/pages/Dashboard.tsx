@@ -9,6 +9,7 @@ import { ReviewsCard } from "@/components/dashboard/ReviewsCard";
 import { TeamCard } from "@/components/dashboard/TeamCard";
 import { AlertsCard } from "@/components/dashboard/AlertsCard";
 import { EventsTodayCard } from "@/components/dashboard/EventsTodayCard";
+import { LoyaltyCard } from "@/components/dashboard/LoyaltyCard";
 
 export default function Dashboard() {
   return (
@@ -37,6 +38,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
         <TeamCard />
         <AlertsCard />
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
+        <LoyaltyCard />
       </div>
     </DashboardProvider>
   );

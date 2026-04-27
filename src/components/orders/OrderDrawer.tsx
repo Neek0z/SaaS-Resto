@@ -1,6 +1,7 @@
 import { Clock, Users, MapPin, CheckCircle2, Flame, XCircle, Trash2, Receipt } from "lucide-react";
 import type { Order, OrderStatus } from "@/lib/order-types";
 import { Drawer } from "@/components/ui/drawer";
+import { LoyaltyCustomerPicker } from "@/components/loyalty/LoyaltyCustomerPicker";
 import { channelLabel, statusLabel } from "./OrderRow";
 import { cn, formatEuros } from "@/lib/utils";
 
@@ -13,11 +14,13 @@ export function OrderDrawer({
   order,
   onClose,
   onStatusChange,
+  onLoyaltyChange,
   onDelete,
 }: {
   order: Order | null;
   onClose: () => void;
   onStatusChange?: (id: string, status: OrderStatus) => void;
+  onLoyaltyChange?: (id: string, loyaltyCustomerId: string | null) => void;
   onDelete?: (id: string) => void | Promise<void>;
 }) {
   const open = order !== null;
@@ -121,6 +124,20 @@ export function OrderDrawer({
             <div className="p-3 rounded-[10px] border border-amber/30 bg-amber/5 text-[13px] text-ink-1">
               <div className="chip-uppercase !text-amber mb-1">Note</div>
               {order.note}
+            </div>
+          )}
+
+          {onLoyaltyChange && (
+            <div>
+              <LoyaltyCustomerPicker
+                value={order.loyaltyCustomerId}
+                onChange={(id) => onLoyaltyChange(order.id, id)}
+                label={
+                  order.status === "served"
+                    ? "Client fidélité (associer après-coup ne crédite pas)"
+                    : "Client fidélité — points crédités au statut servie"
+                }
+              />
             </div>
           )}
 
